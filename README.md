@@ -115,7 +115,7 @@ You: quit
 
 ## SSH + Mobile (Termius / Tailscale)
 
-This tool is built for SSH-only terminal use. Everything works over a plain SSH connection.
+This tool is built for SSH terminal use. Everything works over a plain SSH connection. ( works on vps with tailscale on your own phone in a terminal app that supports ssh )
 
 **GUI apps** (Chrome, Wireshark, Burp Suite) need a display. Over SSH, VIKING will detect this and suggest CLI alternatives automatically. To enable GUI forwarding:
 
