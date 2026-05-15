@@ -48,13 +48,13 @@ Built for security researchers who SSH into their server from anywhere (mobile, 
 ## One-Line Install
 
 ```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/viking-ai/main/install.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/skuldexter-web/viking-ai/main/install.sh)"
 ```
 
 Or clone and run manually:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/viking-ai.git
+git clone https://github.com/skuldexter-web/viking-ai.git
 cd viking-ai
 sudo bash install.sh
 ```
