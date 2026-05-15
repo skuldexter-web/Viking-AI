@@ -3,6 +3,7 @@
 # ================================================================
 #   VIKING AI — Local CLI Security Assistant Installer
 #   GitHub: https://github.com/skuldexter-web/Viking-AI
+#   instagram: s.k.7.l.d
 #   License: MIT
 # ================================================================
 
