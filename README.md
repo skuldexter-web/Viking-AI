@@ -1,194 +1,396 @@
-# ⚔ VIKING AI
+<div align="center">
 
-> *Digital Longship Intelligence System*
-> Local AI-powered CLI security assistant for Kali Linux
+```
+██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗ ██████╗      █████╗ ██╗
+██║   ██║██║██║ ██╔╝██║████╗  ██║██╔════╝     ██╔══██╗██║
+██║   ██║██║█████╔╝ ██║██╔██╗ ██║██║  ███╗    ███████║██║
+╚██╗ ██╔╝██║██╔═██╗ ██║██║╚██╗██║██║   ██║    ██╔══██║██║
+ ╚████╔╝ ██║██║  ██╗██║██║ ╚████║╚██████╔╝    ██║  ██║██║
+  ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═╝  ╚═╝╚═╝
+```
 
-![Kali Linux](https://img.shields.io/badge/Kali-Linux-557C94?style=flat&logo=kalilinux&logoColor=white)
-![Ollama](https://img.shields.io/badge/Powered%20by-Ollama-black?style=flat)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat)
-![Shell](https://img.shields.io/badge/Shell-Bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-![Stars](https://img.shields.io/github/stars/YOUR_USERNAME/viking-ai?style=flat)
+**Digital Longship Intelligence System**
+
+*A fully local, AI-powered CLI security assistant for Kali Linux — armed with 79 hacking tools, War Mode, and zero cloud dependency.*
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Kali%20Linux-blue.svg)]()
+[![AI](https://img.shields.io/badge/AI-Ollama%20%7C%20Local-green.svg)]()
+[![Tools](https://img.shields.io/badge/Arsenal-79%20Tools-red.svg)]()
+[![Shell](https://img.shields.io/badge/Shell-Bash-lightgrey.svg)]()
+
+</div>
 
 ---
 
-VIKING is a fully local, offline AI assistant that lives in your terminal. It understands natural language, runs Kali Linux tools automatically, analyzes scan results with AI, and helps you write code — all over SSH with no cloud, no API keys, and no internet required after setup.
+## What is VIKING AI?
 
-Built for security researchers who SSH into their server from anywhere (mobile, laptop, VPN) and want an intelligent operator in the terminal.
+VIKING AI is a local command-line intelligence layer for penetration testers, security researchers, and Linux operators. It combines an offline AI assistant (powered by [Ollama](https://ollama.com)) with a curated arsenal of 79 security tools — all installable with a single command, all running 100% on your machine. No API keys. No cloud. No data leaving your system.
+
+You talk to it in plain English. It runs scans, analyzes output, suggests next steps, writes code, and guides you through every phase of an engagement — from recon to exploitation.
 
 ---
 
 ## Features
 
-- Runs 100% locally — privacy-first, no data leaves your machine
-- Natural language → auto-executes the right Kali tool
-- AI analysis of nmap scan results with risk assessment
-- Supports: nmap, tshark, wifite, oneshot, nikto, sqlmap, hydra, metasploit, gobuster, hashcat, john, aircrack-ng, netcat, and more
-- Coding assistant: Python, Bash, HTML, CSS, JavaScript
-- Viking-themed identity with tactical CLI formatting
-- tmux integration — sessions survive SSH disconnects
-- Works from Termius on iPhone over Tailscale VPN
-- Switch AI models on the fly
+- **Local AI brain** — runs on Ollama with `gemma3:1b` by default; switchable to 13 different models
+- **79 security tools** — organized into 9 categories, git-cloned and dependency-installed automatically
+- **Wapens Arsenal** — interactive numbered menu to browse and install individual tools
+- **War Mode** — installs the entire arsenal at once with a full-screen red ASCII battle banner
+- **Real-time tool execution** — nmap, nikto, tshark, wifite, sqlmap, and more run directly from the prompt
+- **AI output analysis** — scan results are fed back to the model for tactical interpretation
+- **Model switcher** — switch between 13 Ollama models live from inside the CLI
+- **Persistent config** — your model preference is saved between sessions
+- **tmux integration** — auto-session management for persistent terminal workflows
+- **Fully offline** — no internet required after installation
 
 ---
 
-## Hardware Requirements
+## Requirements
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| CPU | 4-core x86_64 | 8-core (AMD FX / Ryzen) |
-| RAM | 8 GB | 16 GB |
-| VRAM | Not required | Not required |
-| Storage | 5 GB free | 10 GB free |
-| OS | Kali Linux / Debian | Kali Linux |
-
-> Tested and working on: AMD FX-8350 (8-core) · 16GB DDR3 · AMD Radeon R7 370 2GB · Kali Linux
+| Requirement | Notes |
+|---|---|
+| Kali Linux (or Debian-based) | Ubuntu/Parrot also work |
+| Root access | `sudo bash install.sh` |
+| 4 GB RAM minimum | 8 GB+ recommended for larger models |
+| Internet connection | During install only — for cloning tools and pulling the AI model |
+| ~3–10 GB disk space | Depends on how many arsenal tools you install |
 
 ---
 
-## One-Line Install
+## Installation
 
 ```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/skuldexter-web/Viking-AI/main/install.sh)"
-```
-
-Or clone and run manually:
-
-```bash
-git clone https://github.com/skuldexter-web/Viking-AI.git
+git clone https://github.com/YOUR_USERNAME/viking-ai.git
 cd viking-ai
 sudo bash install.sh
 ```
 
+The installer will walk you through 7 steps:
+
+1. Install core system dependencies (`git`, `python3`, `go`, `nmap`, `curl`, etc.)
+2. Install and start [Ollama](https://ollama.com)
+3. Pull the default AI model (`gemma3:1b`)
+4. Write the arsenal registry and interactive menu scripts to `/opt/viking/`
+5. Install the `viking` command to `/usr/local/bin/viking`
+6. Configure a persistent `tmux` session
+7. **Arsenal setup wizard** — choose how many tools to install
+
+### Arsenal Setup Options
+
+When prompted during install, you choose one of four modes:
+
+```
+[1]  Standard install (VIKING CLI + AI only)
+[2]  Install specific tools from the Wapens Arsenal
+[3]  WAR MODE — Install ALL 79 arsenal tools
+[4]  Skip tool installation
+```
+
+Option `[2]` lets you enter tool numbers separated by spaces, e.g. `1 3 7 28 45`.
+
+You can always install more tools later from inside the VIKING prompt by typing `arsenal`.
+
 ---
 
-## Launch
+## Usage
 
 ```bash
 viking
 ```
 
-Inside tmux (recommended — survives disconnects):
-
-```bash
-tmux new -s viking
-viking
-
-# Detach:   Ctrl+B then D
-# Reattach: tmux attach -t viking
-```
-
----
-
-## Usage Examples
+You'll be greeted by the Viking ship ASCII banner and dropped into the interactive prompt.
 
 ```
 You: scan 192.168.1.1
-You: nmap 10.0.0.5
-You: nikto http://192.168.1.100
-You: run wifite
-You: open tshark
+You: nikto http://target.com
 You: sqlmap http://target.com/page?id=1
-You: hydra ssh on 192.168.1.10
-You: write a python port scanner
-You: bash script to monitor active connections
-You: what is a MITM attack
-You: how do I set up a reverse shell with netcat
-You: model phi3:mini
-You: quit
+You: what is a SSRF vulnerability
+You: write a python reverse shell
+You: arsenal
+You: model
+```
+
+### Built-in Commands
+
+| Command | Description |
+|---|---|
+| `scan <ip/url>` | Run nmap + AI analysis on a target |
+| `ping <ip/host>` | Probe a target |
+| `whois <domain>` | Domain WHOIS lookup |
+| `nikto <ip/url>` | Web vulnerability scan |
+| `tshark` | Live packet capture on the active interface |
+| `wifite` | Launch wifite wireless attack suite |
+| `oneshot` | Launch OneShot WPS/PMKID attack |
+| `airmon` | Step-by-step aircrack-ng guidance |
+| `gobuster <url>` | Directory brute force guidance |
+| `sqlmap <url>` | SQL injection commands and flags |
+| `metasploit` | Msfconsole module and payload guidance |
+| `hydra` | Brute force command construction |
+| `hashcat` / `john` | Hash cracking guidance |
+| `netcat` | Reverse/bind shell setup |
+| `open chrome/firefox/wireshark/burp` | Launch GUI apps (requires display) |
+| `arsenal` | Open the Wapens Arsenal tool browser |
+| `model` | List and switch AI models |
+| `model <name>` | Switch to a specific Ollama model |
+| `history` | View session log |
+| `banner` | Redisplay the ship banner |
+| `help` | Show the full command reference |
+| `quit` / `exit` | Exit VIKING |
+
+### Natural Language
+
+VIKING understands plain English. You don't need to memorize commands. Examples:
+
+```
+You: how do I crack WPA2 with aircrack-ng
+You: analyze this nmap output: [paste output]
+You: make me a python script that port scans a subnet
+You: what ports should I check on a Windows machine
+You: write a bash script to automate subdomain enumeration
 ```
 
 ---
 
-## Supported Tools
+## Wapens Arsenal
 
-| Category | Tools |
-|----------|-------|
-| Scanning & Recon | nmap, nikto, gobuster, dirb, whois |
-| Wireless | wifite, oneshot, aircrack-ng, airmon-ng, airodump-ng |
-| Web & Exploitation | sqlmap, metasploit, msfconsole, netcat |
-| Password Attacks | hydra, hashcat, john the ripper |
-| Network & Traffic | tshark, ping |
-| GUI Apps | chrome, firefox, wireshark, burpsuite |
-| Coding | Python, Bash, HTML, CSS, JavaScript |
+Type `arsenal` at the VIKING prompt to open the interactive tool browser.
+
+```
+⚔  WAPENS ARSENAL  ⚔
+══════════════════════════════════════════════════
+
+── Scanning & Recon ──
+[01]  WebCheck
+[02]  DEATH_STAR
+[03]  Dracnmap
+...
+
+── WiFi Tools ──
+[35]  OneShot
+[36]  wifipumpkin3
+...
+
+══════════════════════════════════════════════════
+
+Enter a number to install a single tool
+Type   WAR    to install ALL tools (War Mode)
+Type   back   to return to VIKING
+
+arsenal> 3
+```
+
+Tools already installed are marked `[installed]` in the list. Entering a number clones the repo and installs dependencies automatically.
+
+### Tool Categories
+
+| Category | Tools | Numbers |
+|---|---|---|
+| Scanning & Recon | WebCheck, DEATH_STAR, Dracnmap, RED_HAWK, reconspider, ReconDog, Striker, SecretFinder, rang3r, Breacher, theHarvester, spiderfoot | 01–12 |
+| Network Tools | nmap, masscan, RustScan, xerosploit, amass, httpx, subfinder | 13–19 |
+| XSS Tools | dalfox, XSS-LOADER, extended-xss-search, XSpear, XSSCon, XanXSS, XSStrike, RVuln | 20–27 |
+| SQL Injection | sqlmap, NoSQLMap, DSSS, explo, Blisqy, leviathan, sqlscan | 28–34 |
+| WiFi Tools | OneShot, wifipumpkin3, pixiewps, bluepot, fluxion, wifiphisher, wifite2, fakeap | 35–42 |
+| Anonymity | kali-anonsurf, multitor | 43–44 |
+| OSINT | holehe, maigret, trufflehog, gitleaks, SMWYG | 45–49 |
+| Wordlist | cupp, wlcreator, GoblinWordGenerator | 50–52 |
+| Phishing | autophisher, AdvPhishing, SET, SocialFish, evilginx2, I-See-You, saycheese, ohmyqr, Thanos, QRLJacking, maskphish, BlackPhish | 53–64 |
+| Web Tools | dirb, takeover, checkURL, Sublist3r, web2attack | 65–69 |
+| Exploitation | Vegile, HeraKeylogger, bulk_extractor, TheFatRat, Brutal, msfpc, venom, spycam, Mob-Droid, Enigma | 70–79 |
 
 ---
 
-## SSH + Mobile (Termius / Tailscale)
+## War Mode
 
-This tool is built for SSH terminal use. Everything works over a plain SSH connection. ( works on vps with tailscale on your own phone in a terminal app that supports ssh )
+Type `WAR` inside the arsenal menu (or choose option `[3]` during install) to activate War Mode.
 
-**GUI apps** (Chrome, Wireshark, Burp Suite) need a display. Over SSH, VIKING will detect this and suggest CLI alternatives automatically. To enable GUI forwarding:
-
-```bash
-# X11 forwarding
-ssh -X user@your-tailscale-ip
-
-# Or install VNC
-sudo apt install tigervnc-standalone-server
-vncserver :1
 ```
+██╗    ██╗ █████╗ ██████╗      ███╗   ███╗ ██████╗ ██████╗ ███████╗
+██║    ██║██╔══██╗██╔══██╗     ████╗ ████║██╔═══██╗██╔══██╗██╔════╝
+██║ █╗ ██║███████║██████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗
+...
+
+⚠  ALL WEAPONS DEPLOYING — STAND CLEAR  ⚠
+
+[WAR 1/79] Deploying: WebCheck (Scanning & Recon)
+[WAR 2/79] Deploying: DEATH_STAR (Scanning & Recon)
+...
+[WAR 79/79] Deploying: Enigma (Exploitation)
+
+════════════════════════════════════════════
+WAR COMPLETE — 79 WEAPONS DEPLOYED  ⚔
+════════════════════════════════════════════
+```
+
+The entire terminal turns red. Every tool clones, builds, and installs automatically. A summary of any failures is printed at the end.
 
 ---
 
-## Switch AI Model
+## AI Models
 
-From inside VIKING:
+VIKING ships with `gemma3:1b` as the default — fast, lightweight, runs on 4 GB RAM. Switch to more powerful models anytime.
+
+Type `model` at the VIKING prompt to open the model menu:
 
 ```
-You: model phi3:mini
+⚔ AVAILABLE MODELS ⚔
+══════════════════════════════
+
+[ 1]  gemma3:1b          ← active  [installed]
+[ 2]  gemma3:4b
+[ 3]  llama3.2:1b
+[ 4]  llama3.2:3b
+[ 5]  llama3.1:8b
+[ 6]  mistral:7b
+[ 7]  phi3:mini
+[ 8]  phi3:medium
+[ 9]  qwen2.5:3b
+[10]  qwen2.5:7b
+[11]  deepseek-r1:7b
+[12]  codellama:7b
+[13]  neural-chat:7b
+
+Enter a number or model name to switch.
 ```
 
-Pull a new model first if needed:
+Selecting a model will pull it via Ollama if not already downloaded and save the choice to `/opt/viking/config`. The model persists across sessions.
 
-```bash
-ollama pull phi3:mini
-ollama pull llama3.2:3b
+You can also switch directly:
+
+```
+You: model mistral:7b
 ```
 
-| Model | Speed | Quality | VRAM |
-|-------|-------|---------|------|
-| gemma3:1b | Fastest | Good | CPU only |
-| phi3:mini | Fast | Better | CPU only |
-| llama3.2:3b | Moderate | Best | CPU only |
+### Model Recommendations
+
+| Use Case | Recommended Model |
+|---|---|
+| Low RAM / fast responses | `gemma3:1b` (default) |
+| Better reasoning | `llama3.1:8b` or `mistral:7b` |
+| Code generation | `codellama:7b` |
+| Deep research / analysis | `deepseek-r1:7b` |
+| General security chat | `qwen2.5:7b` |
+
+---
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   You (terminal)                    │
+│              types a command or question            │
+└───────────────────────┬─────────────────────────────┘
+                        │
+          ┌─────────────▼──────────────┐
+          │     VIKING Input Router    │
+          │   (pattern matching in     │
+          │    the main bash loop)     │
+          └──┬───────────┬─────────────┘
+             │           │
+    ┌────────▼──┐   ┌────▼──────────────────┐
+    │  Direct   │   │   Ollama AI Engine     │
+    │  Tool     │   │  (local, no cloud)     │
+    │  Exec     │   │                        │
+    │  nmap     │   │  System prompt gives   │
+    │  nikto    │   │  VIKING its identity,  │
+    │  tshark   │   │  command format, and   │
+    │  wifite   │   │  tactical behavior     │
+    └────┬──────┘   └────────────┬───────────┘
+         │                       │
+         └──────────┬────────────┘
+                    │
+          ┌─────────▼──────────┐
+          │   Output to        │
+          │   terminal +       │
+          │   ~/.viking_       │
+          │   history.log      │
+          └────────────────────┘
+```
+
+When you type something like `scan 192.168.1.1`, VIKING:
+
+1. Detects the keyword `scan` via regex pattern matching
+2. Extracts the IP/domain from your input
+3. Runs `nmap -sV --open -T4` directly and streams the output
+4. Passes the full nmap result to Ollama with a prompt asking for a tactical analysis
+5. Prints the AI's assessment in green below the raw output
+
+For anything not matched by a built-in handler, the input falls through to the general AI fallback, which answers using the VIKING system prompt.
 
 ---
 
 ## File Structure
 
 ```
-viking-ai/
-├── install.sh     # One-command installer — installs everything
-├── README.md      # This file
-└── LICENSE        # MIT License
+/usr/local/bin/viking          ← the main CLI command
+/opt/viking/
+├── config                     ← saved model preference
+├── arsenal_registry.sh        ← tool registry (sourced at runtime)
+├── arsenal_menu.sh            ← interactive tool browser
+├── arsenal/                   ← all installed tools live here
+│   ├── WebCheck/
+│   ├── sqlmap/
+│   ├── XSStrike/
+│   └── ...
+└── logs/                      ← install logs
+~/.viking_history.log          ← your session history
 ```
-
-The installer writes the VIKING script to `/usr/local/bin/viking` so you can run `viking` from anywhere.
 
 ---
 
-## Uninstall
+## tmux Integration
+
+VIKING automatically configures a persistent `tmux` session. This means if you close your terminal, your VIKING session stays alive in the background.
 
 ```bash
-sudo rm /usr/local/bin/viking
+# Start a new VIKING session
+tmux new -s viking
+viking
+
+# Detach (session keeps running)
+Ctrl+B then D
+
+# Reattach later
+tmux attach -t viking
 ```
+
+This is especially useful when running long scans or waiting for tool output — close your SSH connection and come back later.
+
+---
+
+## Legal & Ethics
+
+VIKING AI is built for **authorized penetration testing, CTF competitions, security research, and educational use only.**
+
+- Only use these tools on systems you own or have explicit written permission to test
+- Many of the tools in the arsenal are powerful and can cause serious damage if misused
+- The authors take no responsibility for illegal or unauthorized use
+- Always comply with the laws of your jurisdiction
 
 ---
 
 ## Contributing
 
-PRs welcome. Ideas:
-- Add more tool integrations
-- Improve AI prompt templates for specific tools
-- Add a `report` command to save scan output as markdown
-- Open WebUI integration for browser-based access
+Pull requests are welcome. To add a tool to the arsenal, add one line to the `ARSENAL` array in `install.sh`:
+
+```bash
+ARSENAL["80"]="ToolName|Category|https://github.com/user/repo.git|git_python"
+```
+
+Install types: `git_python` (auto-installs `requirements.txt`), `git_go` (runs `go build`), `git_generic` (tries Makefile / setup.sh / install.sh).
 
 ---
 
 ## License
 
-MIT — free to use, fork, and share.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-*Built for security operators who work from the terminal.*
-*No cloud. No keys. No nonsense.*  ⚔
+<div align="center">
+
+*Built for the longship. Optimized for the raid.*
+
+**⚔ Type `viking` to sail. ⚔**
+
+</div>
