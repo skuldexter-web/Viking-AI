@@ -1,150 +1,176 @@
 #!/bin/bash
 
 # ================================================================
-#   VIKING AI — Local CLI Security Assistant
-#   License: MIT
+#  VIKING AI — Digital Longship Intelligence System
+#  Local CLI Security Assistant for Kali Linux
+#  License: MIT
 # ================================================================
 
-# ── Strict mode ─────────────────────────────────────────────────
-set -euo pipefail
+set -uo pipefail
 
-# ================================================================
-#   COLORS & STYLES
-# ================================================================
-RED='\033[0;31m'
-BRED='\033[1;31m'
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-MAGENTA='\033[0;35m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+# ════════════════════════════════════════════════════════════════
+#  CONSTANTS  — change only here, propagates everywhere
+# ════════════════════════════════════════════════════════════════
+readonly INSTALL_PATH="/usr/local/bin/viking"
+readonly DEFAULT_MODEL="tinyllama"
+readonly VIKING_DIR="/opt/viking"
+readonly ARSENAL_DIR="$VIKING_DIR/arsenal"
+readonly LOG_DIR="$VIKING_DIR/logs"
+readonly CONFIG_FILE="$VIKING_DIR/config"
+readonly REGISTRY_FILE="$VIKING_DIR/arsenal_registry.sh"
+readonly ARSENAL_MENU="$VIKING_DIR/arsenal_menu.sh"
+readonly LOCK_FILE="/tmp/viking_install.lock"
+readonly WAR_JOBS=4          # parallel git clones in War Mode
 
-# ================================================================
-#   GLOBAL CONFIG
-# ================================================================
-INSTALL_PATH="/usr/local/bin/viking"
-DEFAULT_MODEL="gemma3:1b"
-VIKING_DIR="/opt/viking"
-ARSENAL_DIR="$VIKING_DIR/arsenal"
-LOG_DIR="$VIKING_DIR/logs"
-CONFIG_FILE="$VIKING_DIR/config"
+# ════════════════════════════════════════════════════════════════
+#  COLORS  — short names for readability inside heredocs too
+# ════════════════════════════════════════════════════════════════
+readonly R='\033[0;31m'
+readonly RB='\033[1;31m'
+readonly G='\033[0;32m'
+readonly C='\033[0;36m'
+readonly Y='\033[1;33m'
+readonly M='\033[0;35m'
+readonly B='\033[1m'
+readonly D='\033[2m'
+readonly NC='\033[0m'
 
-# ================================================================
-#   WEAPON ARSENAL — Categorized Tool Registry
-#   Format: ["KEY"]="NAME|CATEGORY|URL|INSTALL_TYPE"
-#   INSTALL_TYPE: git_python | git_go | git_generic | package
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  ARSENAL REGISTRY  — single source of truth
+#  Format: "NAME|CATEGORY|GIT_URL|TYPE"
+#  Types : git_python | git_go | git_generic
+#  !! Add/remove tools HERE only — registry file is auto-generated !!
+# ════════════════════════════════════════════════════════════════
 declare -A ARSENAL
 
-# ── Scanning & Recon (01–12) ────────────────────────────────────
-ARSENAL["01"]="WebCheck|Scanning & Recon|https://github.com/X3RX3SSec/WebCheck.git|git_python"
-ARSENAL["02"]="DEATH_STAR|Scanning & Recon|https://github.com/Ringmast4r/DEATH_STAR.git|git_python"
-ARSENAL["03"]="Dracnmap|Scanning & Recon|https://github.com/screetsec/Dracnmap.git|git_python"
-ARSENAL["04"]="RED_HAWK|Scanning & Recon|https://github.com/Tuhinshubhra/RED_HAWK.git|git_python"
-ARSENAL["05"]="reconspider|Scanning & Recon|https://github.com/bhavsec/reconspider.git|git_python"
-ARSENAL["06"]="ReconDog|Scanning & Recon|https://github.com/s0md3v/ReconDog.git|git_python"
-ARSENAL["07"]="Striker|Scanning & Recon|https://github.com/s0md3v/Striker.git|git_python"
-ARSENAL["08"]="SecretFinder|Scanning & Recon|https://github.com/m4ll0k/SecretFinder.git|git_python"
-ARSENAL["09"]="rang3r|Scanning & Recon|https://github.com/floriankunushevci/rang3r.git|git_python"
-ARSENAL["10"]="Breacher|Scanning & Recon|https://github.com/s0md3v/Breacher.git|git_python"
-ARSENAL["11"]="theHarvester|Scanning & Recon|https://github.com/laramies/theHarvester.git|git_python"
-ARSENAL["12"]="spiderfoot|Scanning & Recon|https://github.com/smicallef/spiderfoot.git|git_python"
+# ── Scanning & Recon ────────────────────────────────────────────
+ARSENAL[01]="WebCheck|Scanning & Recon|https://github.com/X3RX3SSec/WebCheck.git|git_python"
+ARSENAL[02]="DEATH_STAR|Scanning & Recon|https://github.com/Ringmast4r/DEATH_STAR.git|git_python"
+ARSENAL[03]="Dracnmap|Scanning & Recon|https://github.com/screetsec/Dracnmap.git|git_python"
+ARSENAL[04]="RED_HAWK|Scanning & Recon|https://github.com/Tuhinshubhra/RED_HAWK.git|git_python"
+ARSENAL[05]="reconspider|Scanning & Recon|https://github.com/bhavsec/reconspider.git|git_python"
+ARSENAL[06]="ReconDog|Scanning & Recon|https://github.com/s0md3v/ReconDog.git|git_python"
+ARSENAL[07]="Striker|Scanning & Recon|https://github.com/s0md3v/Striker.git|git_python"
+ARSENAL[08]="SecretFinder|Scanning & Recon|https://github.com/m4ll0k/SecretFinder.git|git_python"
+ARSENAL[09]="rang3r|Scanning & Recon|https://github.com/floriankunushevci/rang3r.git|git_python"
+ARSENAL[10]="Breacher|Scanning & Recon|https://github.com/s0md3v/Breacher.git|git_python"
+ARSENAL[11]="theHarvester|Scanning & Recon|https://github.com/laramies/theHarvester.git|git_python"
+ARSENAL[12]="spiderfoot|Scanning & Recon|https://github.com/smicallef/spiderfoot.git|git_python"
 
-# ── Network Tools (13–19) ───────────────────────────────────────
-ARSENAL["13"]="nmap|Network Tools|https://github.com/nmap/nmap.git|git_generic"
-ARSENAL["14"]="masscan|Network Tools|https://github.com/robertdavidgraham/masscan.git|git_generic"
-ARSENAL["15"]="RustScan|Network Tools|https://github.com/bee-san/RustScan.git|git_generic"
-ARSENAL["16"]="xerosploit|Network Tools|https://github.com/LionSec/xerosploit.git|git_python"
-ARSENAL["17"]="amass|Network Tools|https://github.com/owasp-amass/amass.git|git_go"
-ARSENAL["18"]="httpx|Network Tools|https://github.com/projectdiscovery/httpx.git|git_go"
-ARSENAL["19"]="subfinder|Network Tools|https://github.com/projectdiscovery/subfinder.git|git_go"
+# ── Network Tools ───────────────────────────────────────────────
+ARSENAL[13]="nmap|Network Tools|https://github.com/nmap/nmap.git|git_generic"
+ARSENAL[14]="masscan|Network Tools|https://github.com/robertdavidgraham/masscan.git|git_generic"
+ARSENAL[15]="RustScan|Network Tools|https://github.com/bee-san/RustScan.git|git_generic"
+ARSENAL[16]="xerosploit|Network Tools|https://github.com/LionSec/xerosploit.git|git_python"
+ARSENAL[17]="amass|Network Tools|https://github.com/owasp-amass/amass.git|git_go"
+ARSENAL[18]="httpx|Network Tools|https://github.com/projectdiscovery/httpx.git|git_go"
+ARSENAL[19]="subfinder|Network Tools|https://github.com/projectdiscovery/subfinder.git|git_go"
 
-# ── XSS Tools (20–28) ──────────────────────────────────────────
-ARSENAL["20"]="dalfox|XSS Tools|https://github.com/hahwul/dalfox.git|git_go"
-ARSENAL["21"]="XSS-LOADER|XSS Tools|https://github.com/capture0x/XSS-LOADER.git|git_python"
-ARSENAL["22"]="extended-xss-search|XSS Tools|https://github.com/Damian89/extended-xss-search.git|git_python"
-ARSENAL["23"]="XSpear|XSS Tools|https://github.com/hahwul/XSpear.git|git_generic"
-ARSENAL["24"]="XSSCon|XSS Tools|https://github.com/menkrep1337/XSSCon.git|git_python"
-ARSENAL["25"]="XanXSS|XSS Tools|https://github.com/Ekultek/XanXSS.git|git_python"
-ARSENAL["26"]="XSStrike|XSS Tools|https://github.com/s0md3v/XSStrike.git|git_python"
-ARSENAL["27"]="RVuln|XSS Tools|https://github.com/yangr0/RVuln.git|git_python"
+# ── XSS Tools ───────────────────────────────────────────────────
+ARSENAL[20]="dalfox|XSS Tools|https://github.com/hahwul/dalfox.git|git_go"
+ARSENAL[21]="XSS-LOADER|XSS Tools|https://github.com/capture0x/XSS-LOADER.git|git_python"
+ARSENAL[22]="extended-xss-search|XSS Tools|https://github.com/Damian89/extended-xss-search.git|git_python"
+ARSENAL[23]="XSpear|XSS Tools|https://github.com/hahwul/XSpear.git|git_generic"
+ARSENAL[24]="XSSCon|XSS Tools|https://github.com/menkrep1337/XSSCon.git|git_python"
+ARSENAL[25]="XanXSS|XSS Tools|https://github.com/Ekultek/XanXSS.git|git_python"
+ARSENAL[26]="XSStrike|XSS Tools|https://github.com/s0md3v/XSStrike.git|git_python"
+ARSENAL[27]="RVuln|XSS Tools|https://github.com/yangr0/RVuln.git|git_python"
 
-# ── SQL Injection (28–34) ───────────────────────────────────────
-ARSENAL["28"]="sqlmap|SQL Injection|https://github.com/sqlmapproject/sqlmap.git|git_python"
-ARSENAL["29"]="NoSQLMap|SQL Injection|https://github.com/codingo/NoSQLMap.git|git_python"
-ARSENAL["30"]="DSSS|SQL Injection|https://github.com/stamparm/DSSS.git|git_python"
-ARSENAL["31"]="explo|SQL Injection|https://github.com/telekom-security/explo.git|git_python"
-ARSENAL["32"]="Blisqy|SQL Injection|https://github.com/JohnTroony/Blisqy.git|git_python"
-ARSENAL["33"]="leviathan|SQL Injection|https://github.com/utkusen/leviathan.git|git_python"
-ARSENAL["34"]="sqlscan|SQL Injection|https://github.com/Cvar1984/sqlscan.git|git_python"
+# ── SQL Injection ───────────────────────────────────────────────
+ARSENAL[28]="sqlmap|SQL Injection|https://github.com/sqlmapproject/sqlmap.git|git_python"
+ARSENAL[29]="NoSQLMap|SQL Injection|https://github.com/codingo/NoSQLMap.git|git_python"
+ARSENAL[30]="DSSS|SQL Injection|https://github.com/stamparm/DSSS.git|git_python"
+ARSENAL[31]="explo|SQL Injection|https://github.com/telekom-security/explo.git|git_python"
+ARSENAL[32]="Blisqy|SQL Injection|https://github.com/JohnTroony/Blisqy.git|git_python"
+ARSENAL[33]="leviathan|SQL Injection|https://github.com/utkusen/leviathan.git|git_python"
+ARSENAL[34]="sqlscan|SQL Injection|https://github.com/Cvar1984/sqlscan.git|git_python"
 
-# ── WiFi Tools (35–41) ─────────────────────────────────────────
-ARSENAL["35"]="OneShot|WiFi Tools|https://github.com/kimocoder/OneShot.git|git_python"
-ARSENAL["36"]="wifipumpkin3|WiFi Tools|https://github.com/P0cL4bs/wifipumpkin3.git|git_python"
-ARSENAL["37"]="pixiewps|WiFi Tools|https://github.com/wiire-a/pixiewps.git|git_generic"
-ARSENAL["38"]="bluepot|WiFi Tools|https://github.com/andrewmichaelsmith/bluepot.git|git_generic"
-ARSENAL["39"]="fluxion|WiFi Tools|https://github.com/FluxionNetwork/fluxion.git|git_generic"
-ARSENAL["40"]="wifiphisher|WiFi Tools|https://github.com/wifiphisher/wifiphisher.git|git_python"
-ARSENAL["41"]="wifite2|WiFi Tools|https://github.com/derv82/wifite2.git|git_python"
-ARSENAL["42"]="fakeap|WiFi Tools|https://github.com/Z4nzu/fakeap.git|git_python"
+# ── WiFi Tools ──────────────────────────────────────────────────
+ARSENAL[35]="OneShot|WiFi Tools|https://github.com/kimocoder/OneShot.git|git_python"
+ARSENAL[36]="wifipumpkin3|WiFi Tools|https://github.com/P0cL4bs/wifipumpkin3.git|git_python"
+ARSENAL[37]="pixiewps|WiFi Tools|https://github.com/wiire-a/pixiewps.git|git_generic"
+ARSENAL[38]="bluepot|WiFi Tools|https://github.com/andrewmichaelsmith/bluepot.git|git_generic"
+ARSENAL[39]="fluxion|WiFi Tools|https://github.com/FluxionNetwork/fluxion.git|git_generic"
+ARSENAL[40]="wifiphisher|WiFi Tools|https://github.com/wifiphisher/wifiphisher.git|git_python"
+ARSENAL[41]="wifite2|WiFi Tools|https://github.com/derv82/wifite2.git|git_python"
+ARSENAL[42]="fakeap|WiFi Tools|https://github.com/Z4nzu/fakeap.git|git_python"
 
-# ── Anonymity & Privacy (43–44) ────────────────────────────────
-ARSENAL["43"]="kali-anonsurf|Anonymity|https://github.com/Und3rf10w/kali-anonsurf.git|git_generic"
-ARSENAL["44"]="multitor|Anonymity|https://github.com/trimstray/multitor.git|git_generic"
+# ── Anonymity ───────────────────────────────────────────────────
+ARSENAL[43]="kali-anonsurf|Anonymity|https://github.com/Und3rf10w/kali-anonsurf.git|git_generic"
+ARSENAL[44]="multitor|Anonymity|https://github.com/trimstray/multitor.git|git_generic"
 
-# ── OSINT & Social (45–52) ─────────────────────────────────────
-ARSENAL["45"]="holehe|OSINT|https://github.com/megadose/holehe.git|git_python"
-ARSENAL["46"]="maigret|OSINT|https://github.com/soxoj/maigret.git|git_python"
-ARSENAL["47"]="trufflehog|OSINT|https://github.com/trufflesecurity/trufflehog.git|git_go"
-ARSENAL["48"]="gitleaks|OSINT|https://github.com/gitleaks/gitleaks.git|git_go"
-ARSENAL["49"]="SMWYG|OSINT|https://github.com/Viralmaniar/SMWYG-Show-Me-What-You-Got.git|git_python"
+# ── OSINT ───────────────────────────────────────────────────────
+ARSENAL[45]="holehe|OSINT|https://github.com/megadose/holehe.git|git_python"
+ARSENAL[46]="maigret|OSINT|https://github.com/soxoj/maigret.git|git_python"
+ARSENAL[47]="trufflehog|OSINT|https://github.com/trufflesecurity/trufflehog.git|git_go"
+ARSENAL[48]="gitleaks|OSINT|https://github.com/gitleaks/gitleaks.git|git_go"
+ARSENAL[49]="SMWYG|OSINT|https://github.com/Viralmaniar/SMWYG-Show-Me-What-You-Got.git|git_python"
 
-# ── Wordlist & Password (50–52) ────────────────────────────────
-ARSENAL["50"]="cupp|Wordlist|https://github.com/Mebus/cupp.git|git_python"
-ARSENAL["51"]="wlcreator|Wordlist|https://github.com/Z4nzu/wlcreator.git|git_python"
-ARSENAL["52"]="GoblinWordGenerator|Wordlist|https://github.com/UndeadSec/GoblinWordGenerator.git|git_python"
+# ── Wordlist ────────────────────────────────────────────────────
+ARSENAL[50]="cupp|Wordlist|https://github.com/Mebus/cupp.git|git_python"
+ARSENAL[51]="wlcreator|Wordlist|https://github.com/Z4nzu/wlcreator.git|git_python"
+ARSENAL[52]="GoblinWordGenerator|Wordlist|https://github.com/UndeadSec/GoblinWordGenerator.git|git_python"
 
-# ── Phishing & Social Engineering (53–64) ──────────────────────
-ARSENAL["53"]="autophisher|Phishing|https://github.com/CodingRanjith/autophisher.git|git_python"
-ARSENAL["54"]="AdvPhishing|Phishing|https://github.com/Ignitetch/AdvPhishing.git|git_python"
-ARSENAL["55"]="SET|Phishing|https://github.com/trustedsec/social-engineer-toolkit.git|git_python"
-ARSENAL["56"]="SocialFish|Phishing|https://github.com/UndeadSec/SocialFish.git|git_python"
-ARSENAL["57"]="evilginx2|Phishing|https://github.com/kgretzky/evilginx2.git|git_go"
-ARSENAL["58"]="I-See-You|Phishing|https://github.com/Viralmaniar/I-See-You.git|git_python"
-ARSENAL["59"]="saycheese|Phishing|https://github.com/hangetzzu/saycheese.git|git_python"
-ARSENAL["60"]="ohmyqr|Phishing|https://github.com/cryptedwolf/ohmyqr.git|git_python"
-ARSENAL["61"]="Thanos|Phishing|https://github.com/TridevReddy/Thanos.git|git_python"
-ARSENAL["62"]="QRLJacking|Phishing|https://github.com/OWASP/QRLJacking.git|git_python"
-ARSENAL["63"]="maskphish|Phishing|https://github.com/jaykali/maskphish.git|git_generic"
-ARSENAL["64"]="BlackPhish|Phishing|https://github.com/yangr0/BlackPhish.git|git_python"
+# ── Phishing ────────────────────────────────────────────────────
+ARSENAL[53]="autophisher|Phishing|https://github.com/CodingRanjith/autophisher.git|git_python"
+ARSENAL[54]="AdvPhishing|Phishing|https://github.com/Ignitetch/AdvPhishing.git|git_python"
+ARSENAL[55]="SET|Phishing|https://github.com/trustedsec/social-engineer-toolkit.git|git_python"
+ARSENAL[56]="SocialFish|Phishing|https://github.com/UndeadSec/SocialFish.git|git_python"
+ARSENAL[57]="evilginx2|Phishing|https://github.com/kgretzky/evilginx2.git|git_go"
+ARSENAL[58]="I-See-You|Phishing|https://github.com/Viralmaniar/I-See-You.git|git_python"
+ARSENAL[59]="saycheese|Phishing|https://github.com/hangetzzu/saycheese.git|git_python"
+ARSENAL[60]="ohmyqr|Phishing|https://github.com/cryptedwolf/ohmyqr.git|git_python"
+ARSENAL[61]="Thanos|Phishing|https://github.com/TridevReddy/Thanos.git|git_python"
+ARSENAL[62]="QRLJacking|Phishing|https://github.com/OWASP/QRLJacking.git|git_python"
+ARSENAL[63]="maskphish|Phishing|https://github.com/jaykali/maskphish.git|git_generic"
+ARSENAL[64]="BlackPhish|Phishing|https://github.com/yangr0/BlackPhish.git|git_python"
 
-# ── Web Tools (65–72) ──────────────────────────────────────────
-ARSENAL["65"]="dirb|Web Tools|https://gitlab.com/kalilinux/packages/dirb.git|git_generic"
-ARSENAL["66"]="takeover|Web Tools|https://github.com/edoardottt/takeover.git|git_go"
-ARSENAL["67"]="checkURL|Web Tools|https://github.com/UndeadSec/checkURL.git|git_python"
-ARSENAL["68"]="Sublist3r|Web Tools|https://github.com/aboul3la/Sublist3r.git|git_python"
-ARSENAL["69"]="web2attack|Web Tools|https://github.com/santatic/web2attack.git|git_python"
+# ── Web Tools ───────────────────────────────────────────────────
+ARSENAL[65]="dirb|Web Tools|https://gitlab.com/kalilinux/packages/dirb.git|git_generic"
+ARSENAL[66]="takeover|Web Tools|https://github.com/edoardottt/takeover.git|git_go"
+ARSENAL[67]="checkURL|Web Tools|https://github.com/UndeadSec/checkURL.git|git_python"
+ARSENAL[68]="Sublist3r|Web Tools|https://github.com/aboul3la/Sublist3r.git|git_python"
+ARSENAL[69]="web2attack|Web Tools|https://github.com/santatic/web2attack.git|git_python"
 
-# ── Payload & Exploitation (70–78) ─────────────────────────────
-ARSENAL["70"]="Vegile|Exploitation|https://github.com/screetsec/Vegile.git|git_generic"
-ARSENAL["71"]="HeraKeylogger|Exploitation|https://github.com/UndeadSec/HeraKeylogger.git|git_python"
-ARSENAL["72"]="bulk_extractor|Exploitation|https://github.com/simsong/bulk_extractor.git|git_generic"
-ARSENAL["73"]="TheFatRat|Exploitation|https://github.com/screetsec/TheFatRat.git|git_generic"
-ARSENAL["74"]="Brutal|Exploitation|https://github.com/screetsec/Brutal.git|git_generic"
-ARSENAL["75"]="msfpc|Exploitation|https://github.com/g0tmi1k/msfpc.git|git_generic"
-ARSENAL["76"]="venom|Exploitation|https://github.com/r00t-3xp10it/venom.git|git_generic"
-ARSENAL["77"]="spycam|Exploitation|https://github.com/indexnotfound404/spycam.git|git_python"
-ARSENAL["78"]="Mob-Droid|Exploitation|https://github.com/kinghacker0/Mob-Droid.git|git_python"
-ARSENAL["79"]="Enigma|Exploitation|https://github.com/UndeadSec/Enigma.git|git_python"
+# ── Exploitation ────────────────────────────────────────────────
+ARSENAL[70]="Vegile|Exploitation|https://github.com/screetsec/Vegile.git|git_generic"
+ARSENAL[71]="HeraKeylogger|Exploitation|https://github.com/UndeadSec/HeraKeylogger.git|git_python"
+ARSENAL[72]="bulk_extractor|Exploitation|https://github.com/simsong/bulk_extractor.git|git_generic"
+ARSENAL[73]="TheFatRat|Exploitation|https://github.com/screetsec/TheFatRat.git|git_generic"
+ARSENAL[74]="Brutal|Exploitation|https://github.com/screetsec/Brutal.git|git_generic"
+ARSENAL[75]="msfpc|Exploitation|https://github.com/g0tmi1k/msfpc.git|git_generic"
+ARSENAL[76]="venom|Exploitation|https://github.com/r00t-3xp10it/venom.git|git_generic"
+ARSENAL[77]="spycam|Exploitation|https://github.com/indexnotfound404/spycam.git|git_python"
+ARSENAL[78]="Mob-Droid|Exploitation|https://github.com/kinghacker0/Mob-Droid.git|git_python"
+ARSENAL[79]="Enigma|Exploitation|https://github.com/UndeadSec/Enigma.git|git_python"
 
-# ================================================================
-#   INSTALLER BANNER
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  LOGGING HELPERS
+# ════════════════════════════════════════════════════════════════
+log_ok()   { echo -e "${G}[✓]${NC} $*"; }
+log_info() { echo -e "${C}[~]${NC} $*"; }
+log_warn() { echo -e "${Y}[!]${NC} $*"; }
+log_err()  { echo -e "${R}[✗]${NC} $*" >&2; }
+log_step() { echo -e "\n${B}${C}━━[ STEP $1 ]━━${NC} $2"; }
+log_war()  { echo -e "${RB}[WAR]${NC} $*"; }
+
+# ════════════════════════════════════════════════════════════════
+#  PREFLIGHT
+# ════════════════════════════════════════════════════════════════
+preflight() {
+  [[ "$EUID" -ne 0 ]]   && log_err "Run as root: sudo bash install.sh" && exit 1
+  [[ -f "$LOCK_FILE" ]] && log_err "Install already running (remove $LOCK_FILE to reset)" && exit 1
+  command -v apt-get &>/dev/null || { log_err "apt-get required (Debian/Kali only)"; exit 1; }
+  touch "$LOCK_FILE"
+  trap 'rm -f "$LOCK_FILE"' EXIT INT TERM
+}
+
+# ════════════════════════════════════════════════════════════════
+#  INSTALLER BANNER  — thick block letters
+# ════════════════════════════════════════════════════════════════
 show_installer_banner() {
   clear
-  echo -e "${BOLD}${CYAN}"
+  echo -e "${B}${C}"
   echo "  ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗ ██████╗      █████╗ ██╗"
   echo "  ██║   ██║██║██║ ██╔╝██║████╗  ██║██╔════╝     ██╔══██╗██║"
   echo "  ██║   ██║██║█████╔╝ ██║██╔██╗ ██║██║  ███╗    ███████║██║"
@@ -152,25 +178,25 @@ show_installer_banner() {
   echo "   ╚████╔╝ ██║██║  ██╗██║██║ ╚████║╚██████╔╝    ██║  ██║██║"
   echo "    ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═╝  ╚═╝╚═╝"
   echo -e "${NC}"
-  echo -e "${GREEN}       ⚔  Digital Longship Intelligence System  ⚔${NC}"
-  echo -e "${CYAN}       Linux Operations & Security Engine${NC}"
+  echo -e "${G}       ⚔  Digital Longship Intelligence System  ⚔${NC}"
+  echo -e "${C}       Linux Operations & Security Engine — Kali Linux${NC}"
   echo ""
   echo "  ═══════════════════════════════════════════════════════"
   echo ""
 }
 
-# ================================================================
-#   WAR MODE — Full Arsenal Installation
-# ================================================================
-show_war_mode_banner() {
+# ════════════════════════════════════════════════════════════════
+#  WAR MODE BANNER  — thick full-red block letters
+# ════════════════════════════════════════════════════════════════
+show_war_banner() {
   clear
-  echo -e "${BRED}"
-  echo "  ██╗    ██╗ █████╗ ██████╗      ███╗   ███╗ ██████╗ ██████╗ ███████╗"
-  echo "  ██║    ██║██╔══██╗██╔══██╗     ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
-  echo "  ██║ █╗ ██║███████║██████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  "
-  echo "  ██║███╗██║██╔══██║██╔══██╗     ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
-  echo "  ╚███╔███╔╝██║  ██║██║  ██║     ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
-  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
+  echo -e "${RB}"
+  echo "  ██╗    ██╗ █████╗ ██████╗     ███╗   ███╗ ██████╗ ██████╗ ███████╗"
+  echo "  ██║    ██║██╔══██╗██╔══██╗    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
+  echo "  ██║ █╗ ██║███████║██████╔╝    ██╔████╔██║██║   ██║██║  ██║█████╗  "
+  echo "  ██║███╗██║██╔══██║██╔══██╗    ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
+  echo "  ╚███╔███╔╝██║  ██║██║  ██║    ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
+  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
   echo ""
   echo "  ██╗  ██╗███████╗██╗     ██╗          ██╗███████╗"
   echo "  ██║  ██║██╔════╝██║     ██║         ██╔╝██╔════╝"
@@ -183,217 +209,279 @@ show_war_mode_banner() {
   echo "  ⚠  DEPLOYING FULL WEAPON ARSENAL — ALL TOOLS INCOMING  ⚠"
   echo "  ══════════════════════════════════════════════════════════════"
   echo -e "${NC}"
-  sleep 2
+  sleep 1
 }
 
-# ================================================================
-#   UTILITY FUNCTIONS
-# ================================================================
-log_info()    { echo -e "${CYAN}[INFO]${NC}    $*"; }
-log_ok()      { echo -e "${GREEN}[✓]${NC}      $*"; }
-log_warn()    { echo -e "${YELLOW}[WARN]${NC}    $*"; }
-log_err()     { echo -e "${RED}[✗]${NC}      $*"; }
-log_step()    { echo -e "${BOLD}${CYAN}[STEP $1]${NC} $2"; }
-log_war()     { echo -e "${BRED}[WAR]${NC}     $*"; }
-log_section() {
-  echo ""
-  echo -e "${BOLD}${YELLOW}  ── $* ──${NC}"
-  echo ""
-}
-
-check_root() {
-  if [ "$EUID" -ne 0 ]; then
-    log_err "Run as root: sudo bash install.sh"
-    exit 1
-  fi
-}
-
-# ================================================================
-#   DEPENDENCY INSTALLER
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  DEPENDENCIES
+# ════════════════════════════════════════════════════════════════
 install_dependencies() {
-  log_step "1" "Installing core dependencies..."
+  log_step "1" "Installing system dependencies..."
   apt-get update -qq
-  apt-get install -y -qq \
-    tmux curl wget git python3 python3-pip python3-venv \
-    nmap tshark whois nikto build-essential golang-go \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    tmux curl wget git \
+    python3 python3-pip python3-venv \
+    nmap tshark whois nikto \
+    build-essential golang-go \
     ruby ruby-dev libpcap-dev libssl-dev 2>/dev/null
-  log_ok "Core dependencies ready"
+  log_ok "Dependencies ready"
 }
 
-# ================================================================
-#   OLLAMA INSTALLER
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  OLLAMA
+# ════════════════════════════════════════════════════════════════
 install_ollama() {
   log_step "2" "Checking Ollama..."
   if command -v ollama &>/dev/null; then
     log_ok "Ollama already installed"
   else
-    log_warn "Installing Ollama..."
-    curl -fsSL https://ollama.com/install.sh | sh
+    log_info "Installing Ollama..."
+    curl -fsSL https://ollama.com/install.sh | sh || {
+      log_err "Ollama install failed — check internet connection"
+      exit 1
+    }
     log_ok "Ollama installed"
   fi
   systemctl enable ollama &>/dev/null || true
   systemctl start  ollama &>/dev/null || true
-  sleep 2
+  # Wait for Ollama to become responsive (max ~15 s)
+  local tries=5
+  until ollama list &>/dev/null || (( --tries == 0 )); do sleep 3; done
   log_ok "Ollama service running"
 }
 
-# ================================================================
-#   MODEL PULLER
-# ================================================================
 pull_model() {
   local model="${1:-$DEFAULT_MODEL}"
-  log_step "3" "Checking AI model ($model)..."
-  if ollama list 2>/dev/null | grep -q "^${model}"; then
-    log_ok "Model $model already present"
+  log_step "3" "Checking model: $model"
+  if ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$model"; then
+    log_ok "Already present: $model"
   else
-    log_warn "Pulling $model — this may take a few minutes..."
-    ollama pull "$model"
-    log_ok "Model $model ready"
+    log_info "Pulling $model — lightweight, won't take long..."
+    ollama pull "$model" || log_warn "Pull failed — will retry on first use"
+    log_ok "Model ready: $model"
   fi
 }
 
-# ================================================================
-#   SINGLE TOOL INSTALLER
-#   Usage: install_tool NUMBER
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  TOOL INSTALLER  — shared by installer, War Mode, and live menu
+# ════════════════════════════════════════════════════════════════
+_post_install() {
+  local dest="$1" type="$2"
+  case "$type" in
+    git_python)
+      [[ -f "$dest/requirements.txt" ]] &&
+        pip3 install -q -r "$dest/requirements.txt" \
+          --break-system-packages 2>/dev/null || true ;;
+    git_go)
+      [[ -f "$dest/go.mod" ]] &&
+        (cd "$dest" && go build ./... 2>/dev/null) || true ;;
+    git_generic)
+      if   [[ -f "$dest/Makefile"   ]]; then (cd "$dest" && make -s 2>/dev/null)        || true
+      elif [[ -f "$dest/setup.sh"   ]]; then (cd "$dest" && bash setup.sh 2>/dev/null)   || true
+      elif [[ -f "$dest/install.sh" ]]; then (cd "$dest" && bash install.sh 2>/dev/null) || true
+      fi ;;
+  esac
+}
+
 install_tool() {
-  local num="$1"
-  local entry="${ARSENAL[$num]:-}"
+  # Accept "3" or "03" — normalise to zero-padded
+  local key; key=$(printf "%02d" "$((10#$1))" 2>/dev/null) || key="$1"
+  local entry="${ARSENAL[$key]:-}"
+  [[ -z "$entry" ]] && { log_err "Tool #$key not in arsenal"; return 1; }
 
-  if [ -z "$entry" ]; then
-    log_err "Tool #$num not found in arsenal."
-    return 1
-  fi
-
-  IFS='|' read -r name category url install_type <<< "$entry"
+  IFS='|' read -r name category url itype <<< "$entry"
   local dest="$ARSENAL_DIR/$name"
 
-  echo -e "${CYAN}  Installing [$num] $name${NC} (${DIM}$category${NC})"
+  echo -e "  ${C}[${key}]${NC} $name  ${D}($category)${NC}"
 
-  # Clone
-  if [ -d "$dest" ]; then
-    log_warn "$name already cloned — pulling latest..."
+  if [[ -d "$dest/.git" ]]; then
     git -C "$dest" pull -q 2>/dev/null || true
   else
     git clone --depth=1 -q "$url" "$dest" 2>/dev/null || {
-      log_err "Failed to clone $name from $url"
-      return 1
+      log_err "Clone failed: $name"; return 1
     }
   fi
 
-  # Post-install based on type
-  case "$install_type" in
-    git_python)
-      if [ -f "$dest/requirements.txt" ]; then
-        pip3 install -q -r "$dest/requirements.txt" --break-system-packages 2>/dev/null || true
-      fi
-      ;;
-    git_go)
-      if [ -f "$dest/go.mod" ]; then
-        (cd "$dest" && go build ./... 2>/dev/null) || true
-      fi
-      ;;
-    git_generic)
-      if [ -f "$dest/Makefile" ]; then
-        (cd "$dest" && make -s 2>/dev/null) || true
-      elif [ -f "$dest/setup.sh" ]; then
-        (cd "$dest" && bash setup.sh 2>/dev/null) || true
-      elif [ -f "$dest/install.sh" ]; then
-        (cd "$dest" && bash install.sh 2>/dev/null) || true
-      fi
-      ;;
-  esac
-
-  log_ok "$name installed → $dest"
+  _post_install "$dest" "$itype"
+  log_ok "$name → $dest"
 }
 
-# ================================================================
-#   ARSENAL DISPLAY — Pretty categorized list
-# ================================================================
-display_arsenal() {
+# ════════════════════════════════════════════════════════════════
+#  PROGRESS BAR
+# ════════════════════════════════════════════════════════════════
+_progress_bar() {
+  local cur="$1" tot="$2" w=46
+  local f=$(( cur * w / tot ))
+  local e=$(( w - f ))
+  printf "\r  ${RB}[${NC}${RB}%s${NC}${D}%s${NC}${RB}]${NC} %d/%d" \
+    "$(printf '█%.0s' $(seq 1 "$f"))" \
+    "$(printf '░%.0s' $(seq 1 "$e"))" \
+    "$cur" "$tot"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  WAR MODE — throttled parallel installs
+# ════════════════════════════════════════════════════════════════
+war_mode_install() {
+  show_war_banner
+  mkdir -p "$ARSENAL_DIR" "$LOG_DIR"
+
+  local keys=()
+  while IFS= read -r k; do keys+=("$k"); done < <(
+    printf '%s\n' "${!ARSENAL[@]}" | sort -n
+  )
+  local total=${#keys[@]} count=0 pids=() failed=()
+
+  for key in "${keys[@]}"; do
+    (( count++ ))
+    IFS='|' read -r name _ _ _ <<< "${ARSENAL[$key]}"
+    log_war "[$count/$total] ${RB}Deploying:${NC} $name"
+
+    install_tool "$key" >> "$LOG_DIR/war_$(printf '%02d' "$count").log" 2>&1 &
+    pids+=($!)
+
+    # Throttle concurrency
+    if (( ${#pids[@]} >= WAR_JOBS )); then
+      wait "${pids[0]}" || failed+=("${keys[$((count - WAR_JOBS))]}")
+      pids=("${pids[@]:1}")
+    fi
+    _progress_bar "$count" "$total"
+  done
+
+  # Drain remaining background jobs
+  for pid in "${pids[@]}"; do wait "$pid" || true; done
+  echo ""
+
+  echo -e "\n${RB} ════════════════════════════════════════════════${NC}"
+  echo -e "${RB}  WAR COMPLETE — $count / $total WEAPONS DEPLOYED  ⚔${NC}"
+  echo -e "${RB} ════════════════════════════════════════════════${NC}"
+  (( ${#failed[@]} > 0 )) && \
+    echo -e "${Y}  Failed: ${failed[*]}\n  Logs → $LOG_DIR${NC}"
+  echo ""
+}
+
+# ════════════════════════════════════════════════════════════════
+#  ARSENAL TABLE  — shared display function (installer + menu)
+# ════════════════════════════════════════════════════════════════
+display_arsenal_table() {
   local current_cat=""
   echo ""
-  echo -e "${BOLD}${YELLOW}  ⚔  WAPENS ARSENAL  ⚔${NC}"
-  echo -e "  ══════════════════════════════════════════════════════"
-  echo ""
-
-  # Sort keys numerically
-  for num in $(echo "${!ARSENAL[@]}" | tr ' ' '\n' | sort -n); do
-    IFS='|' read -r name category url _ <<< "${ARSENAL[$num]}"
-    if [ "$category" != "$current_cat" ]; then
+  echo -e "${B}${Y} ⚔  WAPENS ARSENAL  ⚔${NC}"
+  echo -e " ══════════════════════════════════════════════════════"
+  while IFS= read -r key; do
+    IFS='|' read -r name category _ _ <<< "${ARSENAL[$key]}"
+    if [[ "$category" != "$current_cat" ]]; then
       current_cat="$category"
-      echo -e "${BOLD}${MAGENTA}  ── $category ──${NC}"
+      echo -e "\n${B}${M}  ── $category ──${NC}"
     fi
-    printf "  ${CYAN}[%02d]${NC}  %-28s ${DIM}%s${NC}\n" "$num" "$name" "$url"
-  done
-  echo ""
-  echo -e "  ══════════════════════════════════════════════════════"
-  echo ""
+    local tag=""
+    [[ -d "$ARSENAL_DIR/$name" ]] && tag="${G}[installed]${NC}"
+    printf "  ${C}[%02d]${NC}  %-32s%b\n" "$key" "$name" "$tag"
+  done < <(printf '%s\n' "${!ARSENAL[@]}" | sort -n)
+  echo -e "\n ══════════════════════════════════════════════════════\n"
 }
 
-# ================================================================
-#   WAR MODE — Install ALL tools
-# ================================================================
-war_mode_install() {
-  show_war_mode_banner
-
-  local total=${#ARSENAL[@]}
-  local count=0
-  local failed=()
-
-  for num in $(echo "${!ARSENAL[@]}" | tr ' ' '\n' | sort -n); do
-    count=$((count + 1))
-    IFS='|' read -r name category _ _ <<< "${ARSENAL[$num]}"
-    echo -e "${BRED}[WAR ${count}/${total}]${NC} ${RED}Deploying:${NC} $name ${DIM}($category)${NC}"
-    install_tool "$num" || failed+=("$num:$name")
-  done
-
-  echo ""
-  echo -e "${BRED}  ══════════════════════════════════════════════════════${NC}"
-  echo -e "${BRED}  WAR MODE COMPLETE — ${count} WEAPONS DEPLOYED${NC}"
-  echo -e "${BRED}  ══════════════════════════════════════════════════════${NC}"
-  if [ ${#failed[@]} -gt 0 ]; then
-    echo -e "${YELLOW}  Failed installs:${NC}"
-    for f in "${failed[@]}"; do
-      echo -e "  ${RED}✗${NC} $f"
+# ════════════════════════════════════════════════════════════════
+#  WRITE REGISTRY  — auto-generated from ARSENAL array (no duplication)
+# ════════════════════════════════════════════════════════════════
+write_arsenal_registry() {
+  log_step "4" "Generating arsenal registry..."
+  {
+    echo "#!/bin/bash"
+    echo "# Auto-generated by install.sh — edit ARSENAL array in install.sh only"
+    echo "declare -A TOOL_REGISTRY"
+    for key in $(printf '%s\n' "${!ARSENAL[@]}" | sort -n); do
+      printf 'TOOL_REGISTRY[%02d]="%s"\n' "$key" "${ARSENAL[$key]}"
     done
-  fi
-  echo ""
+  } > "$REGISTRY_FILE"
+  chmod +x "$REGISTRY_FILE"
+  log_ok "Registry → $REGISTRY_FILE"
 }
 
-# ================================================================
-#   INTERACTIVE ARSENAL MENU (called from viking CLI)
-# ================================================================
-write_arsenal_menu_script() {
-  cat > "$VIKING_DIR/arsenal_menu.sh" << 'ARSENALMENU'
+# ════════════════════════════════════════════════════════════════
+#  WRITE ARSENAL MENU SCRIPT
+# ════════════════════════════════════════════════════════════════
+write_arsenal_menu() {
+  log_step "4b" "Writing arsenal menu..."
+  cat > "$ARSENAL_MENU" << 'MENU'
 #!/bin/bash
+# VIKING Arsenal Menu — sources generated registry at runtime
 
-ARSENAL_DIR="/opt/viking/arsenal"
+VIKING_DIR="/opt/viking"
+ARSENAL_DIR="$VIKING_DIR/arsenal"
+REGISTRY_FILE="$VIKING_DIR/arsenal_registry.sh"
+LOG_DIR="$VIKING_DIR/logs"
+WAR_JOBS=4
 
-RED='\033[0;31m'
-BRED='\033[1;31m'
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-MAGENTA='\033[0;35m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+R='\033[0;31m'; RB='\033[1;31m'; G='\033[0;32m'; C='\033[0;36m'
+Y='\033[1;33m'; M='\033[0;35m'; B='\033[1m'; D='\033[2m'; NC='\033[0m'
 
-# Load arsenal registry
-source /opt/viking/arsenal_registry.sh
+# shellcheck source=/dev/null
+source "$REGISTRY_FILE" || { echo "Registry missing — run install.sh"; exit 1; }
 
-war_mode_banner() {
+log_ok()  { echo -e "${G}[✓]${NC} $*"; }
+log_err() { echo -e "${R}[✗]${NC} $*" >&2; }
+log_war() { echo -e "${RB}[WAR]${NC} $*"; }
+
+# ── Post-install handler ──────────────────────────────────────
+_post_install() {
+  local dest="$1" type="$2"
+  case "$type" in
+    git_python)
+      [[ -f "$dest/requirements.txt" ]] &&
+        pip3 install -q -r "$dest/requirements.txt" \
+          --break-system-packages 2>/dev/null || true ;;
+    git_go)
+      [[ -f "$dest/go.mod" ]] && (cd "$dest" && go build ./... 2>/dev/null) || true ;;
+    git_generic)
+      if   [[ -f "$dest/Makefile"   ]]; then (cd "$dest" && make -s 2>/dev/null)        || true
+      elif [[ -f "$dest/setup.sh"   ]]; then (cd "$dest" && bash setup.sh 2>/dev/null)   || true
+      elif [[ -f "$dest/install.sh" ]]; then (cd "$dest" && bash install.sh 2>/dev/null) || true
+      fi ;;
+  esac
+}
+
+# ── Install single tool ───────────────────────────────────────
+install_tool() {
+  local key; key=$(printf "%02d" "$((10#$1))" 2>/dev/null) || key="$1"
+  local entry="${TOOL_REGISTRY[$key]:-}"
+  [[ -z "$entry" ]] && log_err "Tool #$key not found" && return 1
+
+  IFS='|' read -r name category url itype <<< "$entry"
+  local dest="$ARSENAL_DIR/$name"
+  echo -e "  ${C}[$key]${NC} $name  ${D}($category)${NC}"
+
+  if [[ -d "$dest/.git" ]]; then
+    git -C "$dest" pull -q 2>/dev/null || true
+  else
+    git clone --depth=1 -q "$url" "$dest" 2>/dev/null || {
+      log_err "Clone failed: $name"; return 1
+    }
+  fi
+  _post_install "$dest" "$itype"
+  log_ok "$name → $dest"
+}
+
+# ── Progress bar ──────────────────────────────────────────────
+_progress_bar() {
+  local cur="$1" tot="$2" w=46
+  local f=$(( cur * w / tot )) e=$(( w - cur * w / tot ))
+  printf "\r  ${RB}[${NC}${RB}%s${NC}${D}%s${NC}${RB}]${NC} %d/%d" \
+    "$(printf '█%.0s' $(seq 1 "$f"))" \
+    "$(printf '░%.0s' $(seq 1 "$e"))" \
+    "$cur" "$tot"
+}
+
+# ── War Mode banner ───────────────────────────────────────────
+war_banner() {
   clear
-  echo -e "${BRED}"
-  echo "  ██╗    ██╗ █████╗ ██████╗      ███╗   ███╗ ██████╗ ██████╗ ███████╗"
-  echo "  ██║    ██║██╔══██╗██╔══██╗     ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
-  echo "  ██║ █╗ ██║███████║██████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  "
-  echo "  ██║███╗██║██╔══██║██╔══██╗     ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
-  echo "  ╚███╔███╔╝██║  ██║██║  ██║     ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
-  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
+  echo -e "${RB}"
+  echo "  ██╗    ██╗ █████╗ ██████╗     ███╗   ███╗ ██████╗ ██████╗ ███████╗"
+  echo "  ██║    ██║██╔══██╗██╔══██╗    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
+  echo "  ██║ █╗ ██║███████║██████╔╝    ██╔████╔██║██║   ██║██║  ██║█████╗  "
+  echo "  ██║███╗██║██╔══██║██╔══██╗    ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
+  echo "  ╚███╔███╔╝██║  ██║██║  ██║    ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
+  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
   echo ""
   echo "  ██╗  ██╗███████╗██╗     ██╗          ██╗███████╗"
   echo "  ██║  ██║██╔════╝██║     ██║         ██╔╝██╔════╝"
@@ -403,302 +491,229 @@ war_mode_banner() {
   echo "  ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚═╝    ╚══════╝"
   echo ""
   echo "  ══════════════════════════════════════════════════════════════"
-  echo -e "  ${BRED}⚠  ALL WEAPONS DEPLOYING — STAND CLEAR  ⚠${NC}"
-  echo -e "${BRED}  ══════════════════════════════════════════════════════════════${NC}"
+  echo "  ⚠  DEPLOYING FULL WEAPON ARSENAL — ALL TOOLS INCOMING  ⚠"
+  echo "  ══════════════════════════════════════════════════════════════"
   echo -e "${NC}"
+  sleep 1
 }
 
-install_single_tool() {
-  local num="$1"
-  local entry="${TOOL_REGISTRY[$num]:-}"
-  [ -z "$entry" ] && echo -e "${RED}Tool #$num not found.${NC}" && return 1
-  IFS='|' read -r name category url install_type <<< "$entry"
-  local dest="$ARSENAL_DIR/$name"
-  echo -e "${CYAN}Installing [$num] $name...${NC}"
-  if [ -d "$dest" ]; then
-    echo -e "${YELLOW}Already cloned — pulling latest...${NC}"
-    git -C "$dest" pull -q 2>/dev/null || true
-  else
-    git clone --depth=1 -q "$url" "$dest" 2>/dev/null || { echo -e "${RED}Clone failed.${NC}"; return 1; }
-  fi
-  case "$install_type" in
-    git_python)
-      [ -f "$dest/requirements.txt" ] && pip3 install -q -r "$dest/requirements.txt" --break-system-packages 2>/dev/null || true ;;
-    git_go)
-      [ -f "$dest/go.mod" ] && (cd "$dest" && go build ./... 2>/dev/null) || true ;;
-    git_generic)
-      if   [ -f "$dest/Makefile"   ]; then (cd "$dest" && make -s 2>/dev/null) || true
-      elif [ -f "$dest/setup.sh"   ]; then (cd "$dest" && bash setup.sh 2>/dev/null) || true
-      elif [ -f "$dest/install.sh" ]; then (cd "$dest" && bash install.sh 2>/dev/null) || true
-      fi ;;
-  esac
-  echo -e "${GREEN}[✓] $name ready → $dest${NC}"
-}
-
-war_mode_install_all() {
-  war_mode_banner
-  local total=${#TOOL_REGISTRY[@]}
-  local count=0
-  local failed=()
-  for num in $(echo "${!TOOL_REGISTRY[@]}" | tr ' ' '\n' | sort -n); do
-    count=$((count+1))
-    IFS='|' read -r name category _ _ <<< "${TOOL_REGISTRY[$num]}"
-    echo -e "${BRED}[WAR ${count}/${total}]${NC} ${RED}Deploying:${NC} $name"
-    install_single_tool "$num" || failed+=("$name")
+# ── War Mode install ──────────────────────────────────────────
+war_mode() {
+  war_banner
+  mkdir -p "$ARSENAL_DIR" "$LOG_DIR"
+  local keys=()
+  while IFS= read -r k; do keys+=("$k"); done < <(
+    printf '%s\n' "${!TOOL_REGISTRY[@]}" | sort -n
+  )
+  local total=${#keys[@]} count=0 pids=() failed=()
+  for key in "${keys[@]}"; do
+    (( count++ ))
+    IFS='|' read -r name _ _ _ <<< "${TOOL_REGISTRY[$key]}"
+    log_war "[$count/$total] ${RB}Deploying:${NC} $name"
+    install_tool "$key" >> "$LOG_DIR/war_$count.log" 2>&1 &
+    pids+=($!)
+    if (( ${#pids[@]} >= WAR_JOBS )); then
+      wait "${pids[0]}" || failed+=("${keys[$((count - WAR_JOBS))]}")
+      pids=("${pids[@]:1}")
+    fi
+    _progress_bar "$count" "$total"
   done
+  for pid in "${pids[@]}"; do wait "$pid" || true; done
   echo ""
-  echo -e "${BRED}  ════════════════════════════════════════════${NC}"
-  echo -e "${BRED}  WAR COMPLETE — $count WEAPONS DEPLOYED  ⚔${NC}"
-  echo -e "${BRED}  ════════════════════════════════════════════${NC}"
-  [ ${#failed[@]} -gt 0 ] && echo -e "${YELLOW}  Failed: ${failed[*]}${NC}"
+  echo -e "\n${RB} ════════════════════════════════════════════${NC}"
+  echo -e "${RB}  WAR COMPLETE — $count WEAPONS DEPLOYED  ⚔${NC}"
+  echo -e "${RB} ════════════════════════════════════════════${NC}"
+  (( ${#failed[@]} > 0 )) && echo -e "${Y}  Failed: ${failed[*]}${NC}"
   echo ""
 }
 
+# ── Arsenal display ───────────────────────────────────────────
 show_arsenal() {
   local current_cat=""
   echo ""
-  echo -e "${BOLD}${YELLOW}  ⚔  WAPENS ARSENAL  ⚔${NC}"
-  echo -e "  ══════════════════════════════════════════════════"
-  for num in $(echo "${!TOOL_REGISTRY[@]}" | tr ' ' '\n' | sort -n); do
-    IFS='|' read -r name category url _ <<< "${TOOL_REGISTRY[$num]}"
-    if [ "$category" != "$current_cat" ]; then
+  echo -e "${B}${Y} ⚔  WAPENS ARSENAL  ⚔${NC}"
+  echo -e " ══════════════════════════════════════════════════════"
+  while IFS= read -r key; do
+    IFS='|' read -r name category _ _ <<< "${TOOL_REGISTRY[$key]}"
+    if [[ "$category" != "$current_cat" ]]; then
       current_cat="$category"
-      echo ""
-      echo -e "${BOLD}${MAGENTA}  ── $category ──${NC}"
+      echo -e "\n${B}${M}  ── $category ──${NC}"
     fi
-    local installed=""
-    [ -d "$ARSENAL_DIR/$name" ] && installed="${GREEN}[installed]${NC}"
-    printf "  ${CYAN}[%02d]${NC}  %-30s %b\n" "$num" "$name" "$installed"
-  done
-  echo ""
-  echo -e "  ══════════════════════════════════════════════════"
-  echo ""
-  echo -e "  Enter a ${CYAN}number${NC} to install a single tool"
-  echo -e "  Type   ${BRED}WAR${NC}    to install ALL tools (War Mode)"
-  echo -e "  Type   ${YELLOW}back${NC}   to return to VIKING"
-  echo ""
+    local tag=""
+    [[ -d "$ARSENAL_DIR/$name" ]] && tag="${G}[installed]${NC}"
+    printf "  ${C}[%02d]${NC}  %-32s%b\n" "$key" "$name" "$tag"
+  done < <(printf '%s\n' "${!TOOL_REGISTRY[@]}" | sort -n)
+  echo -e "\n ══════════════════════════════════════════════════════"
+  echo -e "\n  ${C}number${NC} → install  |  ${RB}WAR${NC} → all tools  |  ${Y}back${NC} → return\n"
 
   while true; do
-    echo -ne "${YELLOW}arsenal> ${NC}"
+    echo -ne "${Y}arsenal> ${NC}"
     read -r choice
-    case "$choice" in
-      WAR|war|War)
-        war_mode_install_all ;;
-      back|exit|quit)
-        break ;;
-      ''|*[!0-9]*)
-        echo -e "${RED}Enter a number or WAR.${NC}" ;;
-      *)
-        install_single_tool "$choice" ;;
+    case "${choice,,}" in
+      war)          war_mode; show_arsenal; return ;;
+      back|exit|q)  break ;;
+      ''|*[!0-9]*)  echo -e "${R}Enter a number, WAR, or back.${NC}" ;;
+      *)            install_tool "$choice" ;;
     esac
   done
 }
 
 show_arsenal
-ARSENALMENU
-  chmod +x "$VIKING_DIR/arsenal_menu.sh"
+MENU
+  chmod +x "$ARSENAL_MENU"
+  log_ok "Arsenal menu → $ARSENAL_MENU"
 }
 
-# ================================================================
-#   ARSENAL REGISTRY — sourced by the menu at runtime
-# ================================================================
-write_arsenal_registry() {
-  cat > "$VIKING_DIR/arsenal_registry.sh" << 'REGISTRY'
-#!/bin/bash
-declare -A TOOL_REGISTRY
-TOOL_REGISTRY["01"]="WebCheck|Scanning & Recon|https://github.com/X3RX3SSec/WebCheck.git|git_python"
-TOOL_REGISTRY["02"]="DEATH_STAR|Scanning & Recon|https://github.com/Ringmast4r/DEATH_STAR.git|git_python"
-TOOL_REGISTRY["03"]="Dracnmap|Scanning & Recon|https://github.com/screetsec/Dracnmap.git|git_python"
-TOOL_REGISTRY["04"]="RED_HAWK|Scanning & Recon|https://github.com/Tuhinshubhra/RED_HAWK.git|git_python"
-TOOL_REGISTRY["05"]="reconspider|Scanning & Recon|https://github.com/bhavsec/reconspider.git|git_python"
-TOOL_REGISTRY["06"]="ReconDog|Scanning & Recon|https://github.com/s0md3v/ReconDog.git|git_python"
-TOOL_REGISTRY["07"]="Striker|Scanning & Recon|https://github.com/s0md3v/Striker.git|git_python"
-TOOL_REGISTRY["08"]="SecretFinder|Scanning & Recon|https://github.com/m4ll0k/SecretFinder.git|git_python"
-TOOL_REGISTRY["09"]="rang3r|Scanning & Recon|https://github.com/floriankunushevci/rang3r.git|git_python"
-TOOL_REGISTRY["10"]="Breacher|Scanning & Recon|https://github.com/s0md3v/Breacher.git|git_python"
-TOOL_REGISTRY["11"]="theHarvester|Scanning & Recon|https://github.com/laramies/theHarvester.git|git_python"
-TOOL_REGISTRY["12"]="spiderfoot|Scanning & Recon|https://github.com/smicallef/spiderfoot.git|git_python"
-TOOL_REGISTRY["13"]="nmap|Network Tools|https://github.com/nmap/nmap.git|git_generic"
-TOOL_REGISTRY["14"]="masscan|Network Tools|https://github.com/robertdavidgraham/masscan.git|git_generic"
-TOOL_REGISTRY["15"]="RustScan|Network Tools|https://github.com/bee-san/RustScan.git|git_generic"
-TOOL_REGISTRY["16"]="xerosploit|Network Tools|https://github.com/LionSec/xerosploit.git|git_python"
-TOOL_REGISTRY["17"]="amass|Network Tools|https://github.com/owasp-amass/amass.git|git_go"
-TOOL_REGISTRY["18"]="httpx|Network Tools|https://github.com/projectdiscovery/httpx.git|git_go"
-TOOL_REGISTRY["19"]="subfinder|Network Tools|https://github.com/projectdiscovery/subfinder.git|git_go"
-TOOL_REGISTRY["20"]="dalfox|XSS Tools|https://github.com/hahwul/dalfox.git|git_go"
-TOOL_REGISTRY["21"]="XSS-LOADER|XSS Tools|https://github.com/capture0x/XSS-LOADER.git|git_python"
-TOOL_REGISTRY["22"]="extended-xss-search|XSS Tools|https://github.com/Damian89/extended-xss-search.git|git_python"
-TOOL_REGISTRY["23"]="XSpear|XSS Tools|https://github.com/hahwul/XSpear.git|git_generic"
-TOOL_REGISTRY["24"]="XSSCon|XSS Tools|https://github.com/menkrep1337/XSSCon.git|git_python"
-TOOL_REGISTRY["25"]="XanXSS|XSS Tools|https://github.com/Ekultek/XanXSS.git|git_python"
-TOOL_REGISTRY["26"]="XSStrike|XSS Tools|https://github.com/s0md3v/XSStrike.git|git_python"
-TOOL_REGISTRY["27"]="RVuln|XSS Tools|https://github.com/yangr0/RVuln.git|git_python"
-TOOL_REGISTRY["28"]="sqlmap|SQL Injection|https://github.com/sqlmapproject/sqlmap.git|git_python"
-TOOL_REGISTRY["29"]="NoSQLMap|SQL Injection|https://github.com/codingo/NoSQLMap.git|git_python"
-TOOL_REGISTRY["30"]="DSSS|SQL Injection|https://github.com/stamparm/DSSS.git|git_python"
-TOOL_REGISTRY["31"]="explo|SQL Injection|https://github.com/telekom-security/explo.git|git_python"
-TOOL_REGISTRY["32"]="Blisqy|SQL Injection|https://github.com/JohnTroony/Blisqy.git|git_python"
-TOOL_REGISTRY["33"]="leviathan|SQL Injection|https://github.com/utkusen/leviathan.git|git_python"
-TOOL_REGISTRY["34"]="sqlscan|SQL Injection|https://github.com/Cvar1984/sqlscan.git|git_python"
-TOOL_REGISTRY["35"]="OneShot|WiFi Tools|https://github.com/kimocoder/OneShot.git|git_python"
-TOOL_REGISTRY["36"]="wifipumpkin3|WiFi Tools|https://github.com/P0cL4bs/wifipumpkin3.git|git_python"
-TOOL_REGISTRY["37"]="pixiewps|WiFi Tools|https://github.com/wiire-a/pixiewps.git|git_generic"
-TOOL_REGISTRY["38"]="bluepot|WiFi Tools|https://github.com/andrewmichaelsmith/bluepot.git|git_generic"
-TOOL_REGISTRY["39"]="fluxion|WiFi Tools|https://github.com/FluxionNetwork/fluxion.git|git_generic"
-TOOL_REGISTRY["40"]="wifiphisher|WiFi Tools|https://github.com/wifiphisher/wifiphisher.git|git_python"
-TOOL_REGISTRY["41"]="wifite2|WiFi Tools|https://github.com/derv82/wifite2.git|git_python"
-TOOL_REGISTRY["42"]="fakeap|WiFi Tools|https://github.com/Z4nzu/fakeap.git|git_python"
-TOOL_REGISTRY["43"]="kali-anonsurf|Anonymity|https://github.com/Und3rf10w/kali-anonsurf.git|git_generic"
-TOOL_REGISTRY["44"]="multitor|Anonymity|https://github.com/trimstray/multitor.git|git_generic"
-TOOL_REGISTRY["45"]="holehe|OSINT|https://github.com/megadose/holehe.git|git_python"
-TOOL_REGISTRY["46"]="maigret|OSINT|https://github.com/soxoj/maigret.git|git_python"
-TOOL_REGISTRY["47"]="trufflehog|OSINT|https://github.com/trufflesecurity/trufflehog.git|git_go"
-TOOL_REGISTRY["48"]="gitleaks|OSINT|https://github.com/gitleaks/gitleaks.git|git_go"
-TOOL_REGISTRY["49"]="SMWYG|OSINT|https://github.com/Viralmaniar/SMWYG-Show-Me-What-You-Got.git|git_python"
-TOOL_REGISTRY["50"]="cupp|Wordlist|https://github.com/Mebus/cupp.git|git_python"
-TOOL_REGISTRY["51"]="wlcreator|Wordlist|https://github.com/Z4nzu/wlcreator.git|git_python"
-TOOL_REGISTRY["52"]="GoblinWordGenerator|Wordlist|https://github.com/UndeadSec/GoblinWordGenerator.git|git_python"
-TOOL_REGISTRY["53"]="autophisher|Phishing|https://github.com/CodingRanjith/autophisher.git|git_python"
-TOOL_REGISTRY["54"]="AdvPhishing|Phishing|https://github.com/Ignitetch/AdvPhishing.git|git_python"
-TOOL_REGISTRY["55"]="SET|Phishing|https://github.com/trustedsec/social-engineer-toolkit.git|git_python"
-TOOL_REGISTRY["56"]="SocialFish|Phishing|https://github.com/UndeadSec/SocialFish.git|git_python"
-TOOL_REGISTRY["57"]="evilginx2|Phishing|https://github.com/kgretzky/evilginx2.git|git_go"
-TOOL_REGISTRY["58"]="I-See-You|Phishing|https://github.com/Viralmaniar/I-See-You.git|git_python"
-TOOL_REGISTRY["59"]="saycheese|Phishing|https://github.com/hangetzzu/saycheese.git|git_python"
-TOOL_REGISTRY["60"]="ohmyqr|Phishing|https://github.com/cryptedwolf/ohmyqr.git|git_python"
-TOOL_REGISTRY["61"]="Thanos|Phishing|https://github.com/TridevReddy/Thanos.git|git_python"
-TOOL_REGISTRY["62"]="QRLJacking|Phishing|https://github.com/OWASP/QRLJacking.git|git_python"
-TOOL_REGISTRY["63"]="maskphish|Phishing|https://github.com/jaykali/maskphish.git|git_generic"
-TOOL_REGISTRY["64"]="BlackPhish|Phishing|https://github.com/yangr0/BlackPhish.git|git_python"
-TOOL_REGISTRY["65"]="dirb|Web Tools|https://gitlab.com/kalilinux/packages/dirb.git|git_generic"
-TOOL_REGISTRY["66"]="takeover|Web Tools|https://github.com/edoardottt/takeover.git|git_go"
-TOOL_REGISTRY["67"]="checkURL|Web Tools|https://github.com/UndeadSec/checkURL.git|git_python"
-TOOL_REGISTRY["68"]="Sublist3r|Web Tools|https://github.com/aboul3la/Sublist3r.git|git_python"
-TOOL_REGISTRY["69"]="web2attack|Web Tools|https://github.com/santatic/web2attack.git|git_python"
-TOOL_REGISTRY["70"]="Vegile|Exploitation|https://github.com/screetsec/Vegile.git|git_generic"
-TOOL_REGISTRY["71"]="HeraKeylogger|Exploitation|https://github.com/UndeadSec/HeraKeylogger.git|git_python"
-TOOL_REGISTRY["72"]="bulk_extractor|Exploitation|https://github.com/simsong/bulk_extractor.git|git_generic"
-TOOL_REGISTRY["73"]="TheFatRat|Exploitation|https://github.com/screetsec/TheFatRat.git|git_generic"
-TOOL_REGISTRY["74"]="Brutal|Exploitation|https://github.com/screetsec/Brutal.git|git_generic"
-TOOL_REGISTRY["75"]="msfpc|Exploitation|https://github.com/g0tmi1k/msfpc.git|git_generic"
-TOOL_REGISTRY["76"]="venom|Exploitation|https://github.com/r00t-3xp10it/venom.git|git_generic"
-TOOL_REGISTRY["77"]="spycam|Exploitation|https://github.com/indexnotfound404/spycam.git|git_python"
-TOOL_REGISTRY["78"]="Mob-Droid|Exploitation|https://github.com/kinghacker0/Mob-Droid.git|git_python"
-TOOL_REGISTRY["79"]="Enigma|Exploitation|https://github.com/UndeadSec/Enigma.git|git_python"
-REGISTRY
-  chmod +x "$VIKING_DIR/arsenal_registry.sh"
-}
-
-# ================================================================
-#   VIKING MAIN SCRIPT — Written to $INSTALL_PATH
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  VIKING CLI SCRIPT
+#  Written to /usr/local/bin/viking
+#  Optimised for lightweight models (tinyllama, llama3.2:3b, qwen2.5:3b)
+# ════════════════════════════════════════════════════════════════
 write_viking_script() {
+  log_step "5" "Writing VIKING CLI → $INSTALL_PATH..."
   cat > "$INSTALL_PATH" << 'VIKINGSCRIPT'
 #!/bin/bash
-
 # ================================================================
 #  VIKING AI — Digital Longship Intelligence System
-#  Local CLI Security Assistant for Kali Linux
+#  Lightweight AI-powered security assistant for Kali Linux
 #  License: MIT
 # ================================================================
 
-# ── Config ───────────────────────────────────────────────────────
-VIKING_DIR="/opt/viking"
-ARSENAL_DIR="$VIKING_DIR/arsenal"
-CONFIG_FILE="$VIKING_DIR/config"
-LOGFILE="$HOME/.viking_history.log"
+# ── Paths ────────────────────────────────────────────────────────
+readonly VIKING_DIR="/opt/viking"
+readonly ARSENAL_DIR="$VIKING_DIR/arsenal"
+readonly CONFIG_FILE="$VIKING_DIR/config"
+readonly LOGFILE="$HOME/.viking_history.log"
 
-# Load persistent config (model, etc.)
-[ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
-MODEL="${VIKING_MODEL:-gemma3:1b}"
+[[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
+MODEL="${VIKING_MODEL:-tinyllama}"
 
 # ── Colors ───────────────────────────────────────────────────────
-RED='\033[0;31m'
-BRED='\033[1;31m'
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-MAGENTA='\033[0;35m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+R='\033[0;31m'; RB='\033[1;31m'; G='\033[0;32m'; C='\033[0;36m'
+Y='\033[1;33m'; M='\033[0;35m'; B='\033[1m'; D='\033[2m'; NC='\033[0m'
 
-# ── Available models ─────────────────────────────────────────────
-AVAILABLE_MODELS=(
-  "gemma3:1b"
-  "gemma3:4b"
-  "llama3.2:1b"
-  "llama3.2:3b"
-  "llama3.1:8b"
-  "mistral:7b"
-  "phi3:mini"
-  "phi3:medium"
-  "qwen2.5:3b"
-  "qwen2.5:7b"
-  "deepseek-r1:7b"
-  "codellama:7b"
-  "neural-chat:7b"
+# ── Available lightweight models ─────────────────────────────────
+readonly -a AVAILABLE_MODELS=(
+  "tinyllama"       # default — fastest, ~600 MB, great on any machine
+  "llama3.2:3b"     # better reasoning, ~2 GB RAM
+  "qwen2.5:3b"      # strong coding + security context, ~2 GB RAM
 )
 
-# ── System Prompt ────────────────────────────────────────────────
-SYSTEM_PROMPT='You are VIKING, a local AI-powered command-line cybersecurity and automation assistant running on a Linux system.
+# ── Prompt strategy — few-shot conversation history ──────────────
+# tinyllama (1.1B) ignores abstract rules but reliably mimics
+# patterns it sees in prior turns. We inject a short fake
+# conversation as assistant messages so the model learns the
+# exact tone and format by example, not instruction.
+# System prompt is kept to one sentence — small models saturate
+# quickly and extra rules make them hallucinate format tokens.
 
-You operate in a terminal-only environment and are designed for lightweight servers that may run Kali Linux tools, security utilities, and custom GitHub-installed tools.
+readonly SYSTEM_PROMPT='You are VIKING, a sharp cybersecurity assistant on Kali Linux. You give short, direct answers. No filler words. No fake format labels.'
 
-Your purpose is to assist the user in:
-- executing Linux commands and security tools
-- analyzing tool outputs in real time
-- explaining results clearly and concisely
-- generating safe, correct commands for penetration testing and system administration
-- writing code (Python, Bash, JavaScript, HTML, CSS, etc.)
-- automating workflows on Linux systems
+# Few-shot examples injected as real message history.
+# Each pair teaches one behaviour: greeting, command format, analysis.
+# Stored as a reusable JSON fragment so viking_think() can prepend it.
+readonly FEW_SHOT_MESSAGES='
+  {"role":"user",      "content":"hey how are you"},
+  {"role":"assistant", "content":"Ready to raid. What is the target?"},
+  {"role":"user",      "content":"how do I scan open ports on 192.168.1.1"},
+  {"role":"assistant", "content":"COMMAND: nmap -sV --open -T4 192.168.1.1\nEXPLANATION: Detects open ports and service versions.\nOUTPUT: List of open ports with service names and versions."},
+  {"role":"user",      "content":"write a python port scanner"},
+  {"role":"assistant", "content":"import socket\n\ndef scan(host, ports):\n    for port in ports:\n        s = socket.socket()\n        s.settimeout(0.5)\n        if s.connect_ex((host, port)) == 0:\n            print(f\"[OPEN] {port}\")\n        s.close()\n\nscan(\"192.168.1.1\", range(1, 1025))\n\nRuns a TCP connect scan. Adjust timeout for speed vs accuracy."},
+  {"role":"user",      "content":"what is sqlmap used for"},
+  {"role":"assistant", "content":"Automated SQL injection tool. Detects and exploits SQLi vulnerabilities in web apps.\nCOMMAND: sqlmap -u \"http://target.com/page?id=1\" --dbs\nEXPLANATION: Tests the id parameter and lists databases if vulnerable.\nOUTPUT: Database names if injection succeeds, else no vulnerability found."},'
 
-CORE PRINCIPLES:
-1. TOOL-FIRST: For system/network/security tasks, determine the right Linux tool, give the exact command, explain briefly.
-2. OUTPUT ANALYSIS: When tool output is provided, analyze it immediately, explain findings, identify risks, suggest next steps.
-3. COMMAND FORMAT — always use this layout when giving commands:
-   COMMAND: <exact command>
-   EXPLANATION: <what it does>
-   EXPECTED OUTPUT: <what the user should expect>
-4. SAFETY: Warn before any destructive action (rm, wipe, format, live exploits).
-5. WORKFLOW LOOP: Input → tool → command → analyze output → suggest next step.
+# ── Core helpers ──────────────────────────────────────────────────
+readonly OLLAMA_API="http://localhost:11434/api/chat"
 
-VIKING IDENTITY:
-Use subtle Viking-themed labels occasionally: "Scouting report", "Raid analysis", "Intel summary", "Target assessment". Do not overuse them.
+log()         { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >> "$LOGFILE"; }
+v_say()       { echo -e "${Y}⚔  VIKING:${NC} $1"; }
+v_info()      { echo -e "${C}[VIKING]${NC} $1"; }
+v_err()       { echo -e "${R}[VIKING]${NC} $*"; }
+save_config() { echo "VIKING_MODEL=\"$MODEL\"" > "$CONFIG_FILE"; }
 
-You are not just a chatbot. You are an operational command intelligence layer for Linux systems. Be concise, direct, and tactical.'
-
-# ================================================================
-#   FUNCTIONS
-# ================================================================
-log()          { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"; }
-viking_think() { ollama run "$MODEL" "$SYSTEM_PROMPT
-
-$1" 2>/dev/null; }
-viking_say()   { echo -e "${YELLOW}⚔ VIKING:${NC} $1"; }
-viking_info()  { echo -e "${CYAN}[VIKING]${NC} $1"; }
-viking_err()   { echo -e "${RED}[VIKING]${NC} $1"; }
-
-save_config() {
-  echo "VIKING_MODEL=\"$MODEL\"" > "$CONFIG_FILE"
+# ── json_escape — safely escapes a string for JSON ───────────────
+json_escape() {
+  printf '%s' "$1" | python3 -c \
+    'import sys,json; print(json.dumps(sys.stdin.read()), end="")'
 }
 
+# ── viking_think — few-shot REST API with streaming ──────────────
+# Builds a messages array:  system → few-shot examples → user query
+# The model sees concrete examples and mimics them instead of
+# trying to parse abstract rules it's too small to follow.
+# stream:true means tokens print immediately — no wait for full reply.
+viking_think() {
+  local prompt="$*"
+  local sys_escaped user_escaped
+  sys_escaped=$(json_escape "$SYSTEM_PROMPT")
+  user_escaped=$(json_escape "$prompt")
+
+  local payload
+  payload=$(printf '{"model":"%s","stream":true,"options":{"temperature":0.4,"num_predict":400},"messages":[{"role":"system","content":%s},%s{"role":"user","content":%s}]}' \
+    "$MODEL" \
+    "$sys_escaped" \
+    "$FEW_SHOT_MESSAGES" \
+    "$user_escaped")
+
+  curl -sS --no-buffer \
+    -H "Content-Type: application/json" \
+    -d "$payload" \
+    "$OLLAMA_API" 2>/dev/null \
+  | python3 -c "
+import sys, json
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        d = json.loads(line)
+        t = d.get('message', {}).get('content', '')
+        if t:
+            print(t, end='', flush=True)
+    except Exception:
+        pass
+print()
+"
+}
+
+# ── warm_model — pre-loads model into memory on startup ──────────
+# Fires a silent background request so the first real question
+# hits a hot model instead of a cold load.
+warm_model() {
+  curl -sS -o /dev/null \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"$MODEL\",\"stream\":false,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"options\":{\"temperature\":0.4,\"num_predict\":1}}" \
+    "$OLLAMA_API" &
+}
+
+# ── Input helpers ─────────────────────────────────────────────────
+match()          { echo "$INPUT" | grep -iEq "$1"; }
+extract_target() {
+  echo "$INPUT" | grep -oE \
+    '([0-9]{1,3}\.){3}[0-9]{1,3}|https?://[^ ]+|[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}' \
+    | head -1
+}
+
+# ════════════════════════════════════════════════════════════════
+#  BANNER — thick block letters + Viking ship
+# ════════════════════════════════════════════════════════════════
 show_banner() {
   clear
-  echo -e "${DIM}${GREEN}"
+  echo -e "${D}${G}"
   echo "                                         |    |    |"
   echo "                                        )_)  )_)  )_)"
-  echo "                                       )___))___))___)\ "
-  echo "                                      )____)____)_____)\ \ "
-  echo "                                    _____|____|____|____\ \ \ __"
+  echo "                                       )___))___))___)\  "
+  echo "                                      )____)____)_____)\  \ "
+  echo "                                    _____|____|____|____\  \  \ __"
   echo "                       ____________/~~~~~~~~~~~~~~~~~~~~~\___\___________"
-  echo -e "${NC}${DIM}${CYAN}"
+  echo -e "${NC}${D}${C}"
   echo "  ~~^~~^~~^~~^~~^~~^~/                                                   \~~^~~"
   echo "  ~^~~^~~^~~^~~^~~^~~|  ooo   ooo   ooo   ooo   ooo   ooo   ooo   ooo   |^~~^~"
   echo "  ~~^~~^~~^~~^~~^~~^~|  | |   | |   | |   | |   | |   | |   | |   | |   |~~^~~"
   echo "  ~^~~^~~^~~^~~^~~^~~\~~'~'~~~'~'~~~'~'~~~'~'~~~'~'~~~'~'~~~'~'~~~'~'~~/^~~^~~"
-  echo -e "${NC}"
-  echo -e "${BOLD}${YELLOW}"
+  echo "  ~~^~~^~~^~~^~~^~~^~~\________________________________________/~~~^~~^~~"
+  echo "  ~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~^~~"
+  echo -e "${NC}${B}${Y}"
   echo "  ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗ ██████╗      █████╗ ██╗"
   echo "  ██║   ██║██║██║ ██╔╝██║████╗  ██║██╔════╝     ██╔══██╗██║"
   echo "  ██║   ██║██║█████╔╝ ██║██╔██╗ ██║██║  ███╗    ███████║██║"
@@ -706,433 +721,368 @@ show_banner() {
   echo "   ╚████╔╝ ██║██║  ██╗██║██║ ╚████║╚██████╔╝    ██║  ██║██║"
   echo "    ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═╝  ╚═╝╚═╝"
   echo -e "${NC}"
-  echo -e "${CYAN}  ⚔  Digital Longship Intelligence System  ⚔${NC}"
-  echo -e "  ${DIM}════════════════════════════════════════════${NC}"
-  echo -e "  ${CYAN}Linux Operations & Security Engine${NC}"
-  echo -e "  Model: ${GREEN}$MODEL${NC}  |  Type ${YELLOW}help${NC} for commands  |  ${DIM}quit to exit${NC}"
+  echo -e "  ${C}⚔  Digital Longship Intelligence System  ⚔${NC}"
+  echo -e "  ${D}════════════════════════════════════════════${NC}"
+  echo -e "  ${C}Linux Operations & Security Engine${NC}"
+  echo -e "  Model: ${G}${MODEL}${NC}  |  Type ${Y}help${NC} for commands  |  ${D}quit to exit${NC}"
   echo ""
 }
 
+# ════════════════════════════════════════════════════════════════
+#  HELP MENU
+# ════════════════════════════════════════════════════════════════
 show_help() {
   echo ""
-  echo -e "${BOLD}${YELLOW}  ⚔ VIKING COMMAND ARSENAL ⚔${NC}"
-  echo -e "  ══════════════════════════════"
-  echo ""
-  echo -e "${CYAN}  SCANNING & RECON${NC}"
-  echo "    scan <ip/url>         — nmap full scan + AI analysis"
-  echo "    ping <ip/host>        — probe a target"
-  echo "    whois <domain>        — domain reconnaissance"
-  echo "    nikto <ip/url>        — web vulnerability scan"
-  echo ""
-  echo -e "${CYAN}  WIRELESS${NC}"
-  echo "    wifite                — launch wifite"
-  echo "    oneshot               — launch OneShot (WPS/PMKID)"
-  echo "    airmon                — aircrack-ng guidance"
-  echo ""
-  echo -e "${CYAN}  WEB & EXPLOITATION${NC}"
-  echo "    gobuster <url>        — directory brute force"
-  echo "    sqlmap <url>          — SQL injection"
-  echo "    metasploit            — msfconsole guidance"
-  echo "    hydra                 — brute force guidance"
-  echo "    netcat / nc           — shell & listener help"
-  echo ""
-  echo -e "${CYAN}  NETWORK & TRAFFIC${NC}"
-  echo "    tshark                — live packet capture"
-  echo "    hashcat / john        — hash cracking guidance"
-  echo ""
-  echo -e "${CYAN}  GUI APPS (requires display)${NC}"
-  echo "    open chrome/firefox/wireshark/burp"
-  echo ""
-  echo -e "${CYAN}  CODING & SCRIPTING${NC}"
-  echo "    write a python ...    — Python code"
-  echo "    make a html ...       — HTML / CSS / JS"
-  echo "    bash script for ...   — Bash scripting"
-  echo ""
-  echo -e "${CYAN}  ARSENAL & MODEL${NC}"
-  echo "    arsenal               — browse & install tools (79 weapons)"
-  echo "    model                 — list & switch AI models"
-  echo "    model <name>          — switch to a specific model"
-  echo ""
-  echo -e "${CYAN}  SYSTEM${NC}"
-  echo "    help                  — show this menu"
-  echo "    history               — view session log"
-  echo "    banner                — redisplay the banner"
-  echo "    quit / exit           — leave VIKING"
-  echo ""
+  echo -e "${B}${Y} ⚔  VIKING COMMAND REFERENCE  ⚔${NC}"
+  echo -e " ════════════════════════════════\n"
+  # Section format: "TITLE:cmd≡desc:cmd≡desc"
+  local -a sections=(
+    "SCANNING & RECON:scan <ip/url>≡nmap scan + AI analysis:ping <ip>≡probe target:whois <domain>≡WHOIS lookup:nikto <url>≡web vuln scan"
+    "WIRELESS:wifite≡wireless attack suite:oneshot≡WPS/PMKID attack:airmon≡aircrack-ng guidance"
+    "WEB & EXPLOITATION:gobuster <url>≡directory brute force:sqlmap <url>≡SQL injection:metasploit≡msfconsole guidance:hydra≡brute force:netcat≡shell/listener help"
+    "NETWORK & TRAFFIC:tshark≡live packet capture:hashcat / john≡hash cracking"
+    "CODING:write python ...≡Python code:make html ...≡HTML/CSS/JS:bash script ...≡Bash scripting"
+    "ARSENAL & MODEL:arsenal≡browse & install 79 tools:model≡list & switch AI models:model <name>≡quick switch"
+    "SYSTEM:help≡this menu:history≡session log:banner≡redraw banner:quit / exit≡leave VIKING"
+  )
+  for section in "${sections[@]}"; do
+    local title="${section%%:*}" rest="${section#*:}"
+    echo -e " ${C}${title}${NC}"
+    IFS=':' read -ra cmds <<< "$rest"
+    for cmd in "${cmds[@]}"; do
+      printf "   %-28s — %s\n" "${cmd%%≡*}" "${cmd##*≡}"
+    done
+    echo ""
+  done
 }
 
+# ════════════════════════════════════════════════════════════════
+#  MODEL SWITCHER — 3 light models only
+# ════════════════════════════════════════════════════════════════
 show_models() {
+  local installed_list; installed_list=$(ollama list 2>/dev/null | awk '{print $1}')
+
   echo ""
-  echo -e "${BOLD}${YELLOW}  ⚔ AVAILABLE MODELS ⚔${NC}"
-  echo -e "  ══════════════════════════════"
-  echo ""
+  echo -e "${B}${Y} ⚔  LIGHT MODELS  ⚔${NC}"
+  echo -e " ═══════════════════════════════════\n"
+
   local i=1
   for m in "${AVAILABLE_MODELS[@]}"; do
-    local tag=""
-    if [ "$m" == "$MODEL" ]; then
-      tag="${GREEN} ← active${NC}"
-    fi
-    local installed_tag=""
-    if ollama list 2>/dev/null | grep -q "^${m}"; then
-      installed_tag="${DIM}[installed]${NC}"
-    fi
-    printf "  ${CYAN}[%2d]${NC}  %-25s %b %b\n" "$i" "$m" "$tag" "$installed_tag"
-    i=$((i+1))
+    local active="" inst=""
+    [[ "$m" == "$MODEL" ]] && active="${G} ← active${NC}"
+    echo "$installed_list" | grep -qx "$m" && inst="${D}[installed]${NC}"
+    printf " ${C}[%d]${NC}  %-20s%b %b\n" "$i" "$m" "$active" "$inst"
+    (( i++ ))
   done
-  echo ""
-  echo -e "  Enter a number or model name to switch. Type ${YELLOW}back${NC} to cancel."
-  echo ""
+
+  echo -e "\n ${D}All models run under 3 GB RAM.${NC}"
+  echo -e " Number, model name, or ${Y}back${NC} to cancel.\n"
+
   while true; do
-    echo -ne "${YELLOW}model> ${NC}"
+    echo -ne "${Y}model> ${NC}"
     read -r choice
-    case "$choice" in
+    case "${choice,,}" in
       back|exit|'') break ;;
       *[!0-9]*)
-        # Treat as direct model name
-        MODEL="$choice"
-        save_config
-        viking_say "Model switched to: $MODEL (will pull on first use if needed)"
-        break ;;
+        MODEL="$choice"; save_config
+        v_say "Switched to: $MODEL"; break ;;
       *)
-        local idx=$((choice - 1))
-        if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#AVAILABLE_MODELS[@]}" ]; then
-          MODEL="${AVAILABLE_MODELS[$idx]}"
-          save_config
-          viking_say "Pulling and switching to: $MODEL"
+        local idx=$(( choice - 1 ))
+        if (( idx >= 0 && idx < ${#AVAILABLE_MODELS[@]} )); then
+          MODEL="${AVAILABLE_MODELS[$idx]}"; save_config
+          v_say "Pulling: $MODEL..."
           ollama pull "$MODEL" 2>/dev/null || true
-          viking_say "Model active: $MODEL"
-          break
+          v_say "Active: $MODEL"; break
         else
-          viking_err "Invalid choice."
+          v_err "Invalid — enter 1, 2, 3, or back."
         fi ;;
     esac
   done
 }
 
-# ================================================================
-#   BANNER & MAIN LOOP
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  MAIN LOOP
+# ════════════════════════════════════════════════════════════════
 show_banner
+warm_model   # silently pre-loads model into memory in background
 
 while true; do
-  echo -ne "${YELLOW}You: ${NC}"
-  read -r INPUT
-
-  [ -z "$INPUT" ] && continue
+  echo -ne "${Y}You: ${NC}"
+  read -r INPUT || break
+  [[ -z "$INPUT" ]] && continue
   log "USER: $INPUT"
 
-  # ── Exit ─────────────────────────────────────────────────
-  if [[ "$INPUT" == "quit" || "$INPUT" == "exit" || "$INPUT" == "/bye" ]]; then
-    echo ""
-    viking_say "The longship returns to port. Skål. ⚔"
-    echo ""
-    break
+  # ── Built-in commands (exact match first, fastest path) ──────
+  case "${INPUT,,}" in
+    quit|exit|/bye)
+      echo ""; v_say "The longship returns to port. Skål. ⚔"; echo ""; break ;;
+    help)    show_help;   continue ;;
+    banner)  show_banner; continue ;;
+    arsenal) bash "$VIKING_DIR/arsenal_menu.sh"; continue ;;
+    model)   show_models; continue ;;
+    history)
+      echo ""; cat "$LOGFILE" 2>/dev/null || v_err "No history yet."; echo ""
+      continue ;;
+  esac
+
+  # ── model <name> quick switch ─────────────────────────────────
+  if [[ "$INPUT" =~ ^[Mm]odel[[:space:]]+(.+)$ ]]; then
+    MODEL="${BASH_REMATCH[1]}"; save_config
+    v_say "Model → $MODEL"; continue
   fi
 
-  # ── Built-in navigation ──────────────────────────────────
-  if [[ "$INPUT" == "help"   ]]; then show_help;   continue; fi
-  if [[ "$INPUT" == "banner" ]]; then show_banner; continue; fi
-
-  if [[ "$INPUT" == "history" ]]; then
-    echo ""; cat "$LOGFILE" 2>/dev/null || viking_err "No history yet."; echo ""; continue
-  fi
-
-  # ── Arsenal menu ─────────────────────────────────────────
-  if echo "$INPUT" | grep -iq "^arsenal"; then
-    bash "$VIKING_DIR/arsenal_menu.sh"
-    continue
-  fi
-
-  # ── Model switcher ───────────────────────────────────────
-  if echo "$INPUT" | grep -iq "^model$"; then
-    show_models; continue
-  fi
-
-  if echo "$INPUT" | grep -iq "^model "; then
-    MODEL=$(echo "$INPUT" | awk '{print $2}')
-    save_config
-    viking_say "Model switched to: $MODEL"
-    continue
-  fi
-
-  # ── NMAP ─────────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "scan|nmap"; then
-    TARGET=$(echo "$INPUT" | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}|https?://[^ ]+|[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}" | head -1)
-    if [ -n "$TARGET" ]; then
-      viking_info "Scouting target: $TARGET"; echo ""
+  # ── NMAP SCAN ─────────────────────────────────────────────────
+  if match "^scan|nmap"; then
+    TARGET=$(extract_target)
+    if [[ -n "$TARGET" ]]; then
+      v_info "Scouting: $TARGET"; echo ""
       RESULT=$(sudo nmap -sV --open -T4 "$TARGET" 2>&1)
       echo "$RESULT"; echo ""
-      viking_info "Compiling raid report..."; echo ""
-      ANALYSIS=$(viking_think "Produce a VIKING Scouting Report for this nmap scan. List: open ports, services, risk level, vulnerabilities, and recommended follow-up commands. Be tactical and concise. Scan: $RESULT")
-      echo -e "${GREEN}$ANALYSIS${NC}"
+      v_info "Compiling scouting report..."; echo ""
+      echo -ne "${G}"
+      # Feed trimmed output — tiny models have small context windows
+      viking_think "VIKING Scouting Report. Nmap output below. List open ports, services, risk level, next commands. Keep it short.
+---
+${RESULT:0:2000}"
+      echo -e "${NC}"
       log "SCAN: $TARGET"
     else
-      viking_err "No valid target found. Usage: scan 192.168.1.1"
+      v_err "No target found. Usage: scan 192.168.1.1"
     fi
     continue
   fi
 
-  # ── TSHARK ───────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "tshark|packet capture|sniff|capture traffic"; then
-    IFACE=$(ip link show | awk -F': ' '/^[0-9]+:/ && !/lo/{print $2; exit}' | tr -d ' ')
-    viking_info "Intercepting traffic on: $IFACE  (Ctrl+C to stop)"
-    sudo tshark -i "$IFACE" 2>&1 | head -50
+  # ── TSHARK ───────────────────────────────────────────────────
+  if match "tshark|packet capture|sniff|capture traffic"; then
+    IFACE=$(ip -o link show | awk -F': ' '!/lo/{print $2; exit}')
+    v_info "Capturing on ${IFACE} (Ctrl+C to stop)"
+    sudo tshark -i "$IFACE" 2>&1 | head -60
     continue
   fi
 
-  # ── WIFITE ───────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "wifite|wifi attack|wireless attack"; then
-    viking_info "Launching wireless raid via Wifite..."
-    sudo wifite; continue
+  # ── WIFITE ───────────────────────────────────────────────────
+  if match "wifite|wifi attack|wireless attack"; then
+    v_info "Launching Wifite..."; sudo wifite; continue
   fi
 
-  # ── ONESHOT ──────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "oneshot|wps attack|pmkid"; then
-    viking_info "Launching OneShot WPS attack..."
-    IFACE=$(ip link show | awk -F': ' '/wlan/{print $2; exit}' | tr -d ' ')
+  # ── ONESHOT ──────────────────────────────────────────────────
+  if match "oneshot|wps attack|pmkid"; then
+    IFACE=$(ip -o link show | awk '/wlan/{print $2; exit}' | tr -d ':')
+    v_info "OneShot WPS attack on ${IFACE:-wlan0}"
     sudo python3 "$ARSENAL_DIR/OneShot/oneshot.py" -i "$IFACE" 2>/dev/null \
-      || sudo python3 /usr/share/oneshot/oneshot.py -i "$IFACE" 2>/dev/null \
-      || viking_err "OneShot not found. Run: arsenal → [35]"
+      || sudo python3 /usr/share/oneshot/oneshot.py  -i "$IFACE" 2>/dev/null \
+      || v_err "OneShot not installed — run: arsenal → [35]"
     continue
   fi
 
-  # ── NIKTO ────────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "nikto|web vuln|web scan"; then
-    TARGET=$(echo "$INPUT" | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}|https?://[^ ]+|[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}" | head -1)
-    if [ -n "$TARGET" ]; then
-      viking_info "Web vulnerability raid on: $TARGET"
-      nikto -h "$TARGET" 2>&1
+  # ── NIKTO ────────────────────────────────────────────────────
+  if match "nikto|web vuln|web scan"; then
+    TARGET=$(extract_target)
+    if [[ -n "$TARGET" ]]; then
+      v_info "Nikto → $TARGET"; nikto -h "$TARGET" 2>&1
     else
-      viking_think "Explain how to use Nikto for: $INPUT"
+      viking_think "Short nikto usage guide for: $INPUT"
     fi
     continue
   fi
 
-  # ── GOBUSTER ─────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "gobuster|dirb|directory scan|directory brute"; then
-    viking_info "Directory assault guidance:"; echo ""
-    viking_think "Give exact gobuster or dirb commands with wordlist paths and flag explanations for: $INPUT"
+  # ── GOBUSTER / DIRB ──────────────────────────────────────────
+  if match "gobuster|dirb|directory scan|directory brute"; then
+    v_info "Directory assault:"; echo ""
+    viking_think "Exact gobuster or dirb command with wordlist path and key flags for: $INPUT"
     continue
   fi
 
-  # ── SQLMAP ───────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "sqlmap|sql injection|sqli"; then
-    viking_info "SQL injection raid:"; echo ""
-    viking_think "Give exact sqlmap commands with all flags explained. Include --risk, --level, and tamper options for: $INPUT"
+  # ── SQLMAP ───────────────────────────────────────────────────
+  if match "sqlmap|sql injection|sqli"; then
+    v_info "SQL injection raid:"; echo ""
+    viking_think "Exact sqlmap command with --risk --level --tamper flags for: $INPUT"
     continue
   fi
 
-  # ── METASPLOIT ───────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "metasploit|msfconsole|exploit|payload|meterpreter"; then
-    viking_info "Metasploit siege guidance:"; echo ""
-    viking_think "Give exact msfconsole commands, module search, use, set options, and run steps for: $INPUT"
+  # ── METASPLOIT ───────────────────────────────────────────────
+  if match "metasploit|msfconsole|meterpreter|exploit|payload"; then
+    v_info "Metasploit siege:"; echo ""
+    viking_think "Exact msfconsole steps: search, use, set options, run for: $INPUT"
     continue
   fi
 
-  # ── HYDRA ────────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "hydra|brute.?force|crack password|password attack"; then
-    viking_info "Brute force assault guidance:"; echo ""
-    viking_think "Give the exact hydra command with all flags explained including wordlist options for: $INPUT"
+  # ── HYDRA ────────────────────────────────────────────────────
+  if match "hydra|brute.?force|crack password|password attack"; then
+    v_info "Brute force:"; echo ""
+    viking_think "Exact hydra command with flags and wordlist path for: $INPUT"
     continue
   fi
 
-  # ── HASHCAT / JOHN ───────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "hashcat|john the ripper|crack hash|hash crack"; then
-    viking_info "Hash cracking guidance:"; echo ""
-    viking_think "Give exact hashcat or john commands including hash type detection and attack mode flags for: $INPUT"
+  # ── HASHCAT / JOHN ───────────────────────────────────────────
+  if match "hashcat|john the ripper|crack hash|hash crack"; then
+    v_info "Hash cracking:"; echo ""
+    viking_think "Exact hashcat or john command with hash type and attack mode for: $INPUT"
     continue
   fi
 
-  # ── NETCAT ───────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "netcat|reverse shell|bind shell| nc "; then
-    viking_info "Netcat battle guidance:"; echo ""
-    viking_think "Give exact netcat commands showing both the listener side and connect side for: $INPUT"
+  # ── NETCAT ───────────────────────────────────────────────────
+  if match "netcat|reverse shell|bind shell| nc "; then
+    v_info "Netcat:"; echo ""
+    viking_think "Exact netcat commands for both listener side and connect side for: $INPUT"
     continue
   fi
 
-  # ── PING ─────────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "^ping |^ping$"; then
-    TARGET=$(echo "$INPUT" | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}|[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}" | head -1)
-    if [ -n "$TARGET" ]; then
-      viking_info "Probing $TARGET..."
-      ping -c 4 "$TARGET"
-    fi
+  # ── PING ─────────────────────────────────────────────────────
+  if match "^ping"; then
+    TARGET=$(extract_target)
+    [[ -n "$TARGET" ]] && { v_info "Probing $TARGET..."; ping -c 4 "$TARGET"; }
     continue
   fi
 
-  # ── WHOIS ────────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "whois|domain info|domain lookup"; then
-    TARGET=$(echo "$INPUT" | grep -oE "[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}" | head -1)
-    if [ -n "$TARGET" ]; then
-      viking_info "Domain reconnaissance: $TARGET"
-      whois "$TARGET" 2>&1 | head -40
-    fi
+  # ── WHOIS ────────────────────────────────────────────────────
+  if match "whois|domain info|domain lookup"; then
+    TARGET=$(extract_target)
+    [[ -n "$TARGET" ]] && { v_info "WHOIS: $TARGET"; whois "$TARGET" 2>&1 | head -40; }
     continue
   fi
 
-  # ── AIRCRACK ─────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "aircrack|airmon|airodump|monitor mode"; then
-    viking_info "Wireless warfare guidance:"; echo ""
-    viking_think "Give exact step-by-step aircrack-ng terminal commands with explanations for: $INPUT"
+  # ── AIRCRACK ─────────────────────────────────────────────────
+  if match "aircrack|airmon|airodump|monitor mode"; then
+    v_info "Aircrack-ng guidance:"; echo ""
+    viking_think "Step-by-step aircrack-ng commands with explanations for: $INPUT"
     continue
   fi
 
-  # ── GUI APPS ─────────────────────────────────────────────
-  for APP in chrome firefox wireshark burpsuite burp; do
-    if echo "$INPUT" | grep -iEq "open $APP|launch $APP|start $APP"; then
-      CMD=""
-      case "$APP" in
-        chrome)         CMD="google-chrome" ;;
-        firefox)        CMD="firefox" ;;
-        wireshark)      CMD="wireshark" ;;
-        burpsuite|burp) CMD="burpsuite" ;;
-      esac
-      if [ -n "${DISPLAY:-}" ]; then
-        viking_info "Launching $CMD..."
-        $CMD &>/dev/null &
+  # ── GUI APPS ─────────────────────────────────────────────────
+  declare -A _GUI=([chrome]="google-chrome" [firefox]="firefox"
+                   [wireshark]="wireshark"  [burpsuite]="burpsuite" [burp]="burpsuite")
+  for _app in "${!_GUI[@]}"; do
+    if match "open $_app|launch $_app|start $_app"; then
+      if [[ -n "${DISPLAY:-}" ]]; then
+        v_info "Launching ${_GUI[$_app]}..."
+        "${_GUI[$_app]}" &>/dev/null &
       else
-        viking_err "No display available over SSH."
-        echo "  → X11 forwarding: ssh -X user@$(hostname -I | awk '{print $1}')"
-        [[ "$APP" == "wireshark" ]] && echo "  → CLI alternative: sudo tshark -i eth0"
+        v_err "No display (SSH). X11: ssh -X user@$(hostname -I | awk '{print $1}')"
+        [[ "$_app" == "wireshark" ]] && echo "  CLI alt: sudo tshark -i eth0"
       fi
-      continue 2
+      unset _GUI; continue 2
     fi
   done
+  unset _GUI
 
-  # ── CODING ───────────────────────────────────────────────
-  if echo "$INPUT" | grep -iEq "python|write me|create a script|make a script|function|class|html|css|javascript| js |flask|django|bash script|code for|write a"; then
-    viking_info "Scripting mode engaged..."; echo ""
-    viking_think "Write clean, working, commented code. Show the full code block first, then a brief explanation. Task: $INPUT"
+  # ── CODING ───────────────────────────────────────────────────
+  if match "python|write me|create a script|make a script|html|css|javascript| js |flask|django|bash script|code for|write a"; then
+    v_info "Scripting mode..."; echo ""
+    viking_think "Full working commented code first, one short explanation after. Task: $INPUT"
     continue
   fi
 
-  # ── GENERAL FALLBACK ─────────────────────────────────────
-  echo ""
-  viking_info "Processing..."
-  echo ""
-  RESPONSE=$(viking_think "Answer clearly and tactically. If this involves a Linux tool, use the COMMAND / EXPLANATION / EXPECTED OUTPUT format. Question: $INPUT")
-  echo -e "${GREEN}$RESPONSE${NC}"
-  echo ""
-  log "VIKING: $RESPONSE"
+  # ── GENERAL FALLBACK ─────────────────────────────────────────
+  echo ""; v_info "Processing..."; echo ""
+  echo -ne "${G}"
+  viking_think "Tactical answer. COMMAND/EXPLANATION/OUTPUT format for tool tasks. Be brief. Question: $INPUT"
+  echo -e "${NC}"
+  log "USER: $INPUT"
 
 done
 VIKINGSCRIPT
 
   chmod +x "$INSTALL_PATH"
+  log_ok "VIKING CLI → $INSTALL_PATH"
 }
 
-# ================================================================
-#   TMUX AUTO-SESSION
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  TMUX AUTO-SESSION
+# ════════════════════════════════════════════════════════════════
 configure_tmux() {
-  local BASHRC="/root/.bashrc"
-  local MARKER="# VIKING AI auto-session"
-  if ! grep -q "$MARKER" "$BASHRC" 2>/dev/null; then
-    cat >> "$BASHRC" << 'EOF'
+  log_step "6" "Configuring tmux auto-session..."
+  local rc="/root/.bashrc" marker="# VIKING-TMUX"
+  grep -q "$marker" "$rc" 2>/dev/null && { log_ok "tmux already configured"; return; }
+  cat >> "$rc" << 'TMUXCONF'
 
-# VIKING AI auto-session
-if command -v tmux &>/dev/null && [ -z "$TMUX" ]; then
+# VIKING-TMUX
+if command -v tmux &>/dev/null && [[ -z "${TMUX:-}" ]]; then
   tmux has-session -t viking 2>/dev/null || tmux new-session -d -s viking
 fi
-EOF
-  fi
-  log_ok "tmux session configured"
+TMUXCONF
+  log_ok "tmux auto-session configured"
 }
 
-# ================================================================
-#   INTERACTIVE INSTALL WIZARD
-# ================================================================
-run_interactive_install() {
+# ════════════════════════════════════════════════════════════════
+#  INSTALL WIZARD
+# ════════════════════════════════════════════════════════════════
+run_install_wizard() {
+  log_step "7" "Weapon Arsenal setup"
   echo ""
-  echo -e "${BOLD}${CYAN}  What would you like to do?${NC}"
-  echo ""
-  echo -e "  ${YELLOW}[1]${NC}  Standard install (VIKING CLI + AI only)"
-  echo -e "  ${YELLOW}[2]${NC}  Install specific tools from the Wapens Arsenal"
-  echo -e "  ${BRED}[3]${NC}  ${BRED}WAR MODE${NC} — Install ALL 79 arsenal tools"
-  echo -e "  ${YELLOW}[4]${NC}  Skip tool installation"
-  echo ""
-  echo -ne "  Choose [1-4]: "
-  read -r install_choice
+  echo -e " ${B}${C}Select installation mode:${NC}\n"
+  echo -e " ${Y}[1]${NC}  VIKING CLI + AI only     (no extra tools)"
+  echo -e " ${Y}[2]${NC}  Pick tools from arsenal  (enter numbers)"
+  echo -e " ${RB}[3]${NC}  ${RB}WAR MODE${NC} — install all ${#ARSENAL[@]} tools in parallel"
+  echo -e " ${Y}[4]${NC}  Skip\n"
+  echo -ne " Choice [1-4]: "
+  read -r choice
 
-  case "$install_choice" in
-    1) log_ok "Standard install selected." ;;
+  case "$choice" in
+    1) log_ok "Standard install — CLI + AI ready." ;;
     2)
-      display_arsenal
-      echo -e "  Enter tool numbers separated by spaces (e.g. ${CYAN}1 3 7 28${NC}):"
-      echo -ne "  > "
-      read -r tool_choices
+      display_arsenal_table
+      echo -e " Tool numbers, space-separated (e.g. ${C}1 3 7 28${NC}):"
+      echo -ne " > "; read -r picks
       mkdir -p "$ARSENAL_DIR"
-      for num in $tool_choices; do
-        num=$(printf "%02d" "$num" 2>/dev/null || echo "$num")
-        install_tool "$num"
-      done
-      ;;
-    3)
-      mkdir -p "$ARSENAL_DIR"
-      war_mode_install
-      ;;
+      for n in $picks; do install_tool "$n" || true; done ;;
+    3) war_mode_install ;;
     4) log_info "Skipping tool installation." ;;
-    *) log_warn "Invalid choice — skipping tool installation." ;;
+    *) log_warn "Invalid choice — skipping." ;;
   esac
 }
 
-# ================================================================
-#   COMPLETION BANNER
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  COMPLETION BANNER  — thick block letter finish
+# ════════════════════════════════════════════════════════════════
 show_completion() {
   echo ""
-  echo "  ════════════════════════════════════════════════════"
-  echo -e "${BOLD}${YELLOW}   ⚔  VIKING AI — Installation Complete  ⚔${NC}"
-  echo "  ════════════════════════════════════════════════════"
+  echo -e "${B}${G}"
+  echo "  ██████╗  ██████╗ ███╗   ██╗███████╗██╗"
+  echo "  ██╔══██╗██╔═══██╗████╗  ██║██╔════╝██║"
+  echo "  ██║  ██║██║   ██║██╔██╗ ██║█████╗  ██║"
+  echo "  ██║  ██║██║   ██║██║╚██╗██║██╔══╝  ╚═╝"
+  echo "  ██████╔╝╚██████╔╝██║ ╚████║███████╗██╗"
+  echo "  ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝"
+  echo -e "${NC}"
+  echo "  ═══════════════════════════════════════════════"
+  echo -e "${B}${Y}   ⚔  VIKING AI — Installation Complete  ⚔${NC}"
+  echo "  ═══════════════════════════════════════════════"
   echo ""
-  echo -e "  Launch VIKING:     ${CYAN}viking${NC}"
-  echo -e "  In tmux:           ${CYAN}tmux new -s viking${NC}  →  ${CYAN}viking${NC}"
-  echo -e "  Detach tmux:       ${CYAN}Ctrl+B then D${NC}"
-  echo -e "  Reattach:          ${CYAN}tmux attach -t viking${NC}"
-  echo -e "  Arsenal:           inside viking, type ${CYAN}arsenal${NC}"
-  echo -e "  Switch model:      inside viking, type ${CYAN}model${NC}"
-  echo -e "  Arsenal dir:       ${DIM}$ARSENAL_DIR${NC}"
+  echo -e "  Launch:          ${C}viking${NC}"
+  echo -e "  In tmux:         ${C}tmux new -s viking${NC}  then  ${C}viking${NC}"
+  echo -e "  Detach tmux:     ${C}Ctrl+B then D${NC}"
+  echo -e "  Reattach:        ${C}tmux attach -t viking${NC}"
+  echo -e "  Browse tools:    inside viking → ${C}arsenal${NC}"
+  echo -e "  Switch model:    inside viking → ${C}model${NC}"
+  echo -e "  Logs:            ${D}$LOG_DIR${NC}"
   echo ""
-  echo -e "  ${YELLOW}The longship is ready. Type 'viking' to sail.  ⚔${NC}"
+  echo -e "  ${Y}The longship is ready. Type 'viking' to sail.  ⚔${NC}"
   echo ""
 }
 
-# ================================================================
-#   MAIN
-# ================================================================
+# ════════════════════════════════════════════════════════════════
+#  MAIN  — linear orchestrator
+# ════════════════════════════════════════════════════════════════
 main() {
   show_installer_banner
-  check_root
+  preflight
 
-  # Setup directories
   mkdir -p "$VIKING_DIR" "$ARSENAL_DIR" "$LOG_DIR"
 
-  log_step "1" "Installing dependencies..."
-  install_dependencies
+  install_dependencies          # step 1
+  install_ollama                # step 2
+  pull_model "$DEFAULT_MODEL"   # step 3 — tinyllama, fast pull
 
-  log_step "2" "Setting up Ollama..."
-  install_ollama
+  write_arsenal_registry        # step 4  — generated from ARSENAL array
+  write_arsenal_menu            # step 4b — sources the registry at runtime
 
-  log_step "3" "Pulling default model..."
-  pull_model "$DEFAULT_MODEL"
+  write_viking_script           # step 5
+  configure_tmux                # step 6
 
-  log_step "4" "Writing arsenal registry..."
-  write_arsenal_registry
-  write_arsenal_menu_script
-
-  log_step "5" "Installing VIKING to $INSTALL_PATH..."
-  write_viking_script
-  log_ok "VIKING installed at $INSTALL_PATH"
-
-  log_step "6" "Configuring tmux..."
-  configure_tmux
-
-  # Write default config
   echo "VIKING_MODEL=\"$DEFAULT_MODEL\"" > "$CONFIG_FILE"
 
-  log_step "7" "Weapon Arsenal setup..."
-  run_interactive_install
-
+  run_install_wizard            # step 7 — choose tools
   show_completion
 }
 
