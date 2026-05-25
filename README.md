@@ -33,7 +33,7 @@ You talk to it in plain English. It runs scans, analyzes output, suggests next s
 
 ## Features
 
-- **Local AI brain** — runs on Ollama with `gemma3:1b` by default; switchable to 13 different models
+- **Local AI brain** — runs on Ollama with `tinyllama` by default; switchable to different models
 - **79 security tools** — organized into 9 categories, git-cloned and dependency-installed automatically
 - **Wapens Arsenal** — interactive numbered menu to browse and install individual tools
 - **War Mode** — installs the entire arsenal at once with a full-screen red ASCII battle banner
@@ -70,7 +70,7 @@ The installer will walk you through 7 steps:
 
 1. Install core system dependencies (`git`, `python3`, `go`, `nmap`, `curl`, etc.)
 2. Install and start [Ollama](https://ollama.com)
-3. Pull the default AI model (`gemma3:1b`)
+3. Pull the default AI model (`tinyllama`)
 4. Write the arsenal registry and interactive menu scripts to `/opt/viking/`
 5. Install the `viking` command to `/usr/local/bin/viking`
 6. Configure a persistent `tmux` session
@@ -236,21 +236,11 @@ Type `model` at the VIKING prompt to open the model menu:
 ⚔ AVAILABLE MODELS ⚔
 ══════════════════════════════
 
-[ 1]  gemma3:1b          ← active  [installed]
-[ 2]  gemma3:4b
-[ 3]  llama3.2:1b
-[ 4]  llama3.2:3b
-[ 5]  llama3.1:8b
-[ 6]  mistral:7b
-[ 7]  phi3:mini
-[ 8]  phi3:medium
-[ 9]  qwen2.5:3b
-[10]  qwen2.5:7b
-[11]  deepseek-r1:7b
-[12]  codellama:7b
-[13]  neural-chat:7b
+  "tinyllama"    # default — fastest, ~600 MB
+  "llama3.2:3b"  # better reasoning, ~2 GB
+  "qwen2.5:3b"   # strong code + security context, ~2 GB
 
-Enter a number or model name to switch.
+
 ```
 
 Selecting a model will pull it via Ollama if not already downloaded and save the choice to `/opt/viking/config`. The model persists across sessions.
@@ -258,20 +248,8 @@ Selecting a model will pull it via Ollama if not already downloaded and save the
 You can also switch directly:
 
 ```
-You: model mistral:7b
+You: model tinyllama
 ```
-
-### Model Recommendations
-
-| Use Case | Recommended Model |
-|---|---|
-| Low RAM / fast responses | `gemma3:1b` (default) |
-| Better reasoning | `llama3.1:8b` or `mistral:7b` |
-| Code generation | `codellama:7b` |
-| Deep research / analysis | `deepseek-r1:7b` |
-| General security chat | `qwen2.5:7b` |
-
----
 
 ## How It Works
 
