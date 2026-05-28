@@ -53,7 +53,7 @@ You: launch xsstrike http://target.com
 ## Features
 
 - **Local AI brain** — tinyllama by default (600 MB, runs on 1 GB RAM), switchable to llama3.2:3b or qwen2.5:3b
-- **103 security tools** — organized into 11 categories, installed via apt, pip, or git automatically
+- **113 security tools** — organized into 11 categories, installed via apt, pip, or git automatically
 - **Smart install fallback** — if apt fails, Viking automatically falls back to git clone and builds from source
 - **Wapens Arsenal** — numbered interactive menu to browse and install individual tools live from the CLI
 - **War Mode** — deploy all 103 tools in parallel with a full red ASCII battle banner
