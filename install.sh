@@ -299,23 +299,34 @@ preflight() {
 # ════════════════════════════════════════════════════════════════
 show_installer_banner() {
   clear
-  # Ship with colored striped sails and round shields
-  echo -e "${D}${C}"
-  echo "                              |                    |"
-  echo "                             /|\\                  /|\\"
-  echo -e "${NC}${RB}             \u250c\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2510             \u250c\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2510"
-  echo -e "${W}             \u2551  ~ ~ WIND ~ ~ ~ ~  \u2551             \u2551  ~ ~ WIND ~ ~ ~ ~  \u2551"
-  echo -e "${RB}             \u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563             \u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563"
-  echo -e "${W}             \u2551                   \u2551             \u2551                   \u2551"
-  echo -e "${RB}             \u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563             \u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563"
-  echo -e "${W}             \u2551                   \u2551             \u2551                   \u2551"
-  echo -e "${RB}             \u2514\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2518             \u2514\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2518"
-  echo -e "${D}${C}                              |                    |"
-  echo -e "${Y}   =========================${NC}${C}=========================${Y}=========================${NC}"
-  echo -e "${Y}  (O)(O)(O)(O)(O)${NC}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${Y}(O)(O)(O)(O)(O)${NC}"
-  echo -e "${C}              /~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\\"
-  echo "             / ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo \\"
-  echo -e "${NC}${D}${C}  ~~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^${NC}"
+  # ── Dragon prow ────────────────────────────────────────────────────────
+  echo -e "${RB}                              >>==>{  VIKING AI  }===>>        ${NC}"
+  echo -e "${D}${C}                                   |         |${NC}"
+  echo -e "${D}${C}                                  /|\\       /|\\${NC}"
+  # ── Sails: 4 red stripes, white fill, box-drawing ─────────────────────
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}~~~~~~~~~~~~~~~~~~${RB}|       |${W}~~~~~~~~~~~~~~~~~~${RB}|${NC}"
+  echo -e "${RB}              |${W} ~ ~ WIND ~ ~ ~ ~${RB}|       |${W} ~ ~ WIND ~ ~ ~ ~${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              |${W}     >>=====>>     ${RB}|       |${W}     >>=====>>     ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  # ── Mast base ──────────────────────────────────────────────────────────
+  echo -e "${D}${C}                                   |         |${NC}"
+  # ── Yard arm ───────────────────────────────────────────────────────────
+  echo -e "${Y}    o==========o==========${NC}${C}||${NC}${Y}==========o==========o${NC}"
+  # ── Shields ────────────────────────────────────────────────────────────
+  printf "  ${Y}(O) (O) (O) (O)${NC}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${Y}(O) (O) (O) (O)${NC}\n"
+  # ── Hull top ───────────────────────────────────────────────────────────
+  printf "         ${RB}___${C}____________________________________________________${RB}___${NC}\n"
+  printf "        ${RB}/${NC}${C} ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo ${RB}\\${NC}\n"
+  printf "       ${RB}/${NC}${C}______________________________________________________${RB}\\${NC}\n"
+  # ── Waterline ──────────────────────────────────────────────────────────
+  printf "  ${C}~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^${NC}\n"
+  printf "  ${D}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${NC}\n"
+  # ── Logo ───────────────────────────────────────────────────────────────
   echo -e "${B}${Y}"
   echo "  ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗  ██████╗      █████╗ ██╗"
   echo "  ██║   ██║██║██║ ██╔╝██║████╗  ██║ ██╔════╝     ██╔══██╗██║"
@@ -324,10 +335,11 @@ show_installer_banner() {
   echo "   ╚████╔╝ ██║██║  ██╗██║██║ ╚████║ ╚██████╔╝    ██║  ██║██║"
   echo "    ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝  ╚═════╝     ╚═╝  ╚═╝╚═╝"
   echo -e "${NC}"
-  echo -e "${G}  Digital Longship Intelligence System  v${VIKING_VERSION}  |  @s.k.7.l.d${NC}"
+  printf "  ${G}Digital Longship Intelligence System  v${VIKING_VERSION}  |  @s.k.7.l.d${NC}\n"
   echo -e "${D}  ═══════════════════════════════════════════════════════${NC}"
   echo ""
 }
+
 
 # ════════════════════════════════════════════════════════════════
 #  WAR MODE BANNER
@@ -1285,27 +1297,33 @@ ask_scan_type() {
 # ════════════════════════════════════════════════════════════════
 show_banner() {
   clear
-  # ── Masts ────────────────────────────────────────────────────
-  echo -e "${D}${C}                              |                    |"
-  echo -e "                             /|\\                  /|\\"
-  # ── Sails: red/white stripes with box-drawing chars ──────────
-  echo -e "${NC}${RB}             ┌═════════════════┐             ┌═════════════════┐${NC}"
-  echo -e "${W}             ║  ~ ~ WIND ~ ~ ~ ~  ║             ║  ~ ~ WIND ~ ~ ~ ~  ║${NC}"
-  echo -e "${RB}             ╠═════════════════╣             ╠═════════════════╣${NC}"
-  echo -e "${W}             ║                   ║             ║                   ║${NC}"
-  echo -e "${RB}             ╠═════════════════╣             ╠═════════════════╣${NC}"
-  echo -e "${W}             ║                   ║             ║                   ║${NC}"
-  echo -e "${RB}             └═════════════════┘             └═════════════════┘${NC}"
-  # ── Mast base + yard ──────────────────────────────────────────
-  echo -e "${D}${C}                              |                    |"
-  echo -e "${NC}${Y}    ========================${NC}${C}==========================${Y}========================${NC}"
-  # ── Shields (round) ──────────────────────────────────────────
-  echo -e "  ${Y}(O)(O)(O)(O)(O)${NC}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${Y}(O)(O)(O)(O)(O)${NC}"
-  # ── Hull ─────────────────────────────────────────────────────
-  echo -e "             ${C}   /~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\\${NC}"
-  echo -e "                ${C}/ ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo \\${NC}"
-  echo -e "  ${D}${C}~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^${NC}"
-  # ── Logo ─────────────────────────────────────────────────────
+  # ── Dragon prow ────────────────────────────────────────────────────────
+  echo -e "${RB}                              >>==>{  VIKING AI  }===>>        ${NC}"
+  echo -e "${D}${C}                                   |         |${NC}"
+  echo -e "${D}${C}                                  /|\\       /|\\${NC}"
+  # ── Sails: red stripe / white fill alternating ─────────────────────────
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}~~~~~~~~~~~~~~~~~~${RB}|       |${W}~~~~~~~~~~~~~~~~~~${RB}|${NC}"
+  echo -e "${RB}              |${W} ~ ~ WIND ~ ~ ~ ~${RB}|       |${W} ~ ~ WIND ~ ~ ~ ~${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              |${W}     >>=====>>     ${RB}|       |${W}     >>=====>>     ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  # ── Mast base + yard ───────────────────────────────────────────────────
+  echo -e "${D}${C}                                   |         |${NC}"
+  echo -e "${Y}    o==========o==========${NC}${C}||${NC}${Y}==========o==========o${NC}"
+  # ── Shields ────────────────────────────────────────────────────────────
+  printf "  ${Y}(O) (O) (O) (O)${NC}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${Y}(O) (O) (O) (O)${NC}\n"
+  # ── Hull ───────────────────────────────────────────────────────────────
+  printf "         ${RB}___${C}____________________________________________________${RB}___${NC}\n"
+  printf "        ${RB}/${NC}${C} ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo ${RB}\\${NC}\n"
+  printf "       ${RB}/${NC}${C}______________________________________________________${RB}\\${NC}\n"
+  # ── Waterline ──────────────────────────────────────────────────────────
+  printf "  ${C}~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^${NC}\n"
+  printf "  ${D}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${NC}\n"
+  # ── Logo ───────────────────────────────────────────────────────────────
   echo -e "${B}${Y}"
   echo "  ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗  ██████╗      █████╗ ██╗"
   echo "  ██║   ██║██║██║ ██╔╝██║████╗  ██║ ██╔════╝     ██╔══██╗██║"
@@ -1321,6 +1339,7 @@ show_banner() {
   echo -e "  Model: ${G}${MODEL}${NC}  |  Target: ${tgt_disp}  |  Type ${Y}help${NC}"
   echo ""
 }
+
 
 # ════════════════════════════════════════════════════════════════
 #  WELCOME WARRIOR
@@ -2346,57 +2365,6 @@ handle_input() {
     return 0
   fi
 
-  # ── SPLIT SCREEN ─────────────────────────────────────────────
-  # Opens a second tmux pane for running parallel tools
-  if match "$INPUT" "split.*screen|split.*term|second.*term|dual.*pane|open.*pane|new.*pane"; then
-    if [[ -n "${TMUX:-}" ]]; then
-      # Already in tmux - split the current window
-      local direction="h"
-      match "$INPUT" "vertical|below|bottom" && direction="v"
-      echo ""
-      echo -e "${C}  Opening split pane...${NC}"
-      if [[ "$direction" == "h" ]]; then
-        tmux split-window -h
-      else
-        tmux split-window -v
-      fi
-      v_ok "Split pane opened. Use Ctrl+B arrow keys to switch panes."
-    else
-      # Not in tmux - ask user if they want to launch tmux with a split
-      echo ""
-      echo -e "${Y}  Not currently inside a tmux session.${NC}"
-      echo -ne "  Launch viking in tmux with a split pane? [Y/n]: "
-      read -r ts_choice
-      if [[ "${ts_choice,,}" != "n" ]]; then
-        tmux new-session -d -s viking_split 2>/dev/null || true
-        tmux split-window -h -t viking_split
-        tmux attach-session -t viking_split
-      else
-        v_info "Tip: Start with 'tmux new -s viking' then type 'split screen'"
-      fi
-    fi
-    return 0
-  fi
-
-  # ── DOUBLE CHECK (ask if user wants second terminal for tool) ─
-  # Called by tool handlers when they think a second view is useful
-  # e.g. "open second terminal for nikto"
-  if match "$INPUT" "second.*terminal.*for|extra.*pane.*for|parallel.*run"; then
-    local tool_req; tool_req=$(echo "$INPUT" | awk '{print $NF}')
-    echo ""
-    echo -ne "${Y}  Open a split pane and run $tool_req there? [Y/n]: ${NC}"
-    read -r sp_choice
-    if [[ "${sp_choice,,}" != "n" ]]; then
-      if [[ -n "${TMUX:-}" ]]; then
-        tmux split-window -h "bash -c 'echo Run: $tool_req here; bash'"
-        v_ok "Split pane opened with $tool_req ready."
-      else
-        v_err "Start viking in tmux first: tmux new -s viking"
-      fi
-    fi
-    return 0
-  fi
-
   # ── RTL-SDR / RADIO TOOLS ────────────────────────────────────
 
   # ADS-B Flight Radar (dump1090)
@@ -2501,51 +2469,73 @@ handle_input() {
     return 0
   fi
 
-  # ── HIDDEN TOOL (Rick Roll easter egg) ───────────────────────
-  # secret command: vikingroll / rollrick / longship secret / hidden toll
-  if match "$INPUT" "vikingroll|rollrick|hidden.?toll|longship.*secret|never.*gonna|rickroll|rick.*roll"; then
+  # -- HIDDEN TOOL (Rick Roll easter egg) ---
+  # Trigger: exactly "rick roll" typed by user
+  if match "$INPUT" "^rick[[:space:]]roll$|^rickroll$"; then
+    clear
     echo ""
-    echo -e "${Y}  The skalds have foretold this moment...${NC}"
+    echo -e "${Y}  The skalds sing an ancient and cursed battle hymn...${NC}"
     echo ""
     sleep 1
-    echo -e "${RB}"
-    echo "  ██████╗ ██╗ ██████╗██╗  ██╗    ██████╗  ██████╗ ██╗     ██╗      "
-    echo "  ██╔══██╗██║██╔════╝██║ ██╔╝    ██╔══██╗██╔═══██╗██║     ██║      "
-    echo "  ██████╔╝██║██║     █████╔╝     ██████╔╝██║   ██║██║     ██║      "
-    echo "  ██╔══██╗██║██║     ██╔═██╗     ██╔══██╗██║   ██║██║     ██║      "
-    echo "  ██║  ██║██║╚██████╗██║  ██╗    ██║  ██║╚██████╔╝███████╗███████╗ "
-    echo "  ╚═╝  ╚═╝╚═╝ ╚═════╝╚═╝  ╚═╝    ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝"
+    echo -e "${C}"
+    echo '            .-----------. '
+    echo '           /  .--------.  \\'
+    echo '          / /  ________  \\ \\'
+    echo '         | |  / o    o \\  | |'
+    echo '         | |  |  _=_  |  | |'
+    echo '          \\ \\ \\______/ / /'
+    echo '           \\  --------  /'
+    echo '            `-----------'\'''
+    echo '           /|    Rick   |\\'
+    echo '          / |   Astley  | \\'
+    echo '         /__|___________|__\\'
+    echo -e "${NC}${RB}"
+    echo "  ██████╗ ██╗ ██████╗██╗  ██╗  ██████╗  ██████╗ ██╗     ██╗     "
+    echo "  ██╔══██╗██║██╔════╝██║ ██╔╝  ██╔══██╗██╔═══██╗██║     ██║     "
+    echo "  ██████╔╝██║██║     █████╔╝   ██████╔╝██║   ██║██║     ██║     "
+    echo "  ██╔══██╗██║██║     ██╔═██╗   ██╔══██╗██║   ██║██║     ██║     "
+    echo "  ██║  ██║██║╚██████╗██║  ██╗  ██║  ██║╚██████╔╝███████╗███████╗"
+    echo "  ╚═╝  ╚═╝╚═╝ ╚═════╝╚═╝  ╚═╝  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝"
+    echo -e "${NC}${Y}"
+    echo "  ══════════════════════════════════════════════════════"
+    echo "   Never Gonna Give You Up  --  Rick Astley  (1987)    "
+    echo "  ══════════════════════════════════════════════════════"
+    echo ""
+    echo "  We're no strangers to love"
+    echo "  You know the rules and so do I"
+    echo "  A full commitment's what I'm thinking of"
+    echo "  You wouldn't get this from any other guy"
+    echo ""
+    echo "  I just wanna tell you how I'm feeling"
+    echo "  Gotta make you understand"
+    echo ""
+    echo -e "${RB}  [CHORUS]${NC}${Y}"
+    echo "  Never gonna give you up"
+    echo "  Never gonna let you down"
+    echo "  Never gonna run around and desert you"
+    echo "  Never gonna make you cry"
+    echo "  Never gonna say goodbye"
+    echo "  Never gonna tell a lie and hurt you"
+    echo ""
+    echo "  We've known each other for so long"
+    echo "  Your heart's been aching but you're too shy to say it"
+    echo "  Inside we both know what's been going on"
+    echo "  We know the game and we're gonna play it"
+    echo ""
+    echo "  And if you ask me how I'm feeling"
+    echo "  Don't tell me you're too blind to see"
+    echo ""
+    echo -e "${RB}  [CHORUS]${NC}${Y}"
+    echo "  Never gonna give you up"
+    echo "  Never gonna let you down"
+    echo "  Never gonna run around and desert you"
+    echo "  Never gonna make you cry"
+    echo "  Never gonna say goodbye"
+    echo "  Never gonna tell a lie and hurt you"
+    echo ""
     echo -e "${NC}"
-    echo -e "${Y}  Never gonna give you up...${NC}"
-    echo -e "${Y}  Never gonna let you down...${NC}"
-    echo -e "${Y}  Never gonna run around and desert you...${NC}"
-    echo ""
-    echo -e "${C}  Opening in browser...${NC}"
-    sleep 1
-    # Try multiple ways to open — CLI-friendly
-    if command -v xdg-open &>/dev/null && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
-      xdg-open "https://www.youtube.com/watch?v=dQw4w9WgXcQ" 2>/dev/null &
-    elif command -v curl &>/dev/null; then
-      echo ""
-      echo -e "${D}  Direct link: https://www.youtube.com/watch?v=dQw4w9WgXcQ${NC}"
-      echo ""
-      echo -e "${C}  ASCII Rick Astley incoming from the longship...${NC}"
-      echo ""
-      sleep 1
-      curl -sL "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -o /dev/null
-      # ASCII art fallback
-      echo -e "${Y}"
-      echo '   o   o   o   ooo   o   o o ooo  ooo  ooo   ooo  '
-      echo '   oo  o  o o  o  o  oo  o   o   o     o  o  o  o '
-      echo '   o o o o   o  ooo  o o o   o   o  oo  oooo  ooo  '
-      echo '   o  oo o   o  o  o o  oo   o   o   o  o  o  o  o '
-      echo '   o   o o   o  o  o o   o   o    ooo   o  o  o  o '
-      echo -e "${NC}"
-      echo -e "${G}  You have been Rick Rolled by VIKING.${NC}"
-      echo -e "${D}  https://www.youtube.com/watch?v=dQw4w9WgXcQ${NC}"
-    fi
-    echo ""
-    v_say "Ha! Even the greatest warriors fall for this raid. Skål."
+    echo "  ══════════════════════════════════════════════════════"
+    v_say "You have been Rick Rolled by VIKING. No browser. No song. Just pain."
     echo ""
     return 0
   fi
