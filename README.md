@@ -12,12 +12,12 @@
 **Digital Longship Intelligence System**
 
 *A fully local, AI-powered CLI security assistant for Kali Linux.*
-*113 hacking tools. War Mode. Zero cloud dependency.*
+*120 hacking tools. War Mode. Zero cloud dependency.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Kali%20Linux-blue.svg)]()
 [![AI](https://img.shields.io/badge/AI-Ollama%20Local-green.svg)]()
-[![Tools](https://img.shields.io/badge/Arsenal-103%20Tools-red.svg)]()
+[![Tools](https://img.shields.io/badge/Arsenal-120%20Tools-red.svg)]()
 [![Shell](https://img.shields.io/badge/Shell-Bash-lightgrey.svg)]()
 
 </div>
@@ -53,7 +53,7 @@ You: launch xsstrike http://target.com
 ## Features
 
 - **Local AI brain** — tinyllama by default (600 MB, runs on 1 GB RAM), switchable to llama3.2:3b or qwen2.5:3b
-- **113 security tools** — organized into 11 categories, installed via apt, pip, or git automatically
+- **120 security tools** — organized into 11 categories, installed via apt, pip, or git automatically
 - **Smart install fallback** — if apt fails, Viking automatically falls back to git clone and builds from source
 - **Wapens Arsenal** — numbered interactive menu to browse and install individual tools live from the CLI
 - **War Mode** — deploy all 103 tools in parallel with a full red ASCII battle banner
@@ -105,7 +105,7 @@ At step 7 you choose how many tools to install:
 ```
 [1]  VIKING CLI + AI only     (no extra tools)
 [2]  Pick tools from arsenal  (enter numbers like: 1 3 7 28)
-[3]  WAR MODE                 (install all 103 tools)
+[3]  WAR MODE                 (install all 120 tools)
 [4]  Skip
 ```
 
