@@ -12,7 +12,7 @@
 **Digital Longship Intelligence System**
 
 *A fully local, AI-powered CLI security assistant for Kali Linux.*
-*103 hacking tools. War Mode. Zero cloud dependency.*
+*113 hacking tools. War Mode. Zero cloud dependency.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Kali%20Linux-blue.svg)]()
