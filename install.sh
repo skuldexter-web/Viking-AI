@@ -202,6 +202,39 @@ ARSENAL[118]="gnuradio|RTL-SDR Radio|https://github.com/gnuradio/gnuradio.git|ap
 ARSENAL[119]="multimon-ng|RTL-SDR Radio|https://github.com/EliasOenal/multimon-ng.git|apt_install:multimon-ng"
 ARSENAL[120]="kalibrate-rtl|RTL-SDR Radio|https://github.com/steve-m/kalibrate-rtl.git|git_generic"
 
+# Radio & SDR
+ARSENAL[121]="urh|RTL-SDR Radio|https://github.com/jopohl/urh.git|pip_install:urh"
+ARSENAL[122]="eaphammer|WiFi Tools|https://github.com/s0lst1c3/eaphammer.git|git_python"
+
+# OSINT & Recon
+ARSENAL[123]="recon-ng|Scanning & Recon|https://github.com/lanmaster53/recon-ng.git|git_python"
+ARSENAL[124]="assetfinder|Scanning & Recon|https://github.com/tomnomnom/assetfinder.git|git_go"
+ARSENAL[125]="findomain|Scanning & Recon|https://github.com/findomain/findomain.git|git_generic"
+ARSENAL[126]="phoneinfoga|OSINT|https://github.com/sundowndev/phoneinfoga.git|git_go"
+ARSENAL[127]="GHunt|OSINT|https://github.com/mxrch/GHunt.git|git_python"
+ARSENAL[128]="BloodHound.py|Active Directory|https://github.com/Fox-IT/BloodHound.py.git|git_python"
+ARSENAL[129]="mitm6|Active Directory|https://github.com/dirkjanm/mitm6.git|pip_install:mitm6"
+
+# Web & Fuzzing
+ARSENAL[130]="jaeles|Web Scanning|https://github.com/jaeles-project/jaeles.git|git_go"
+ARSENAL[131]="arjun|Web Scanning|https://github.com/s0md3v/Arjun.git|pip_install:arjun"
+ARSENAL[132]="vulhub|Exploitation|https://github.com/vulhub/vulhub.git|git_generic"
+
+# C2 & Phishing
+ARSENAL[133]="gophish|C2 Frameworks|https://github.com/gophish/gophish.git|git_go"
+ARSENAL[134]="zphisher|Phishing|https://github.com/htr-tech/zphisher.git|git_generic"
+
+# Wordlists & Resources
+ARSENAL[135]="SecLists|Wordlist|https://github.com/danielmiessler/SecLists.git|git_generic"
+
+# HTTP Benchmarking / Load Testing
+ARSENAL[136]="bombardier|Web Scanning|https://github.com/codesenberg/bombardier.git|git_go"
+
+# Python pip3 tools (managed as arsenal entries)
+ARSENAL[137]="shodan|OSINT|https://github.com/achillean/shodan-python.git|pip_install:shodan"
+ARSENAL[138]="censys|OSINT|https://github.com/censys/censys-python.git|pip_install:censys"
+ARSENAL[139]="dnspython|Scanning & Recon|https://github.com/rthalley/dnspython.git|pip_install:dnspython"
+
 # ════════════════════════════════════════════════════════════════
 #  KNOWN ENTRYPOINTS MAP
 #  Maps arsenal tool directory name -> the actual script/binary to run.
@@ -305,8 +338,8 @@ show_installer_banner() {
   echo -e "${D}${C}                                  /|\\       /|\\${NC}"
   # ── Sails: 4 red stripes, white fill, box-drawing ─────────────────────
   echo -e "${RB}              +==================+       +==================+${NC}"
-  echo -e "${RB}              |${W}~~~~~~~~~~~~~~~~~~${RB}|       |${W}~~~~~~~~~~~~~~~~~~${RB}|${NC}"
-  echo -e "${RB}              |${W} ~ ~ WIND ~ ~ ~ ~${RB}|       |${W} ~ ~ WIND ~ ~ ~ ~${RB}|${NC}"
+  echo -e "${RB}              |${RB}//////////////////|       |${RB}//////////////////|${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
   echo -e "${RB}              +==================+       +==================+${NC}"
   echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
   echo -e "${RB}              |${W}     >>=====>>     ${RB}|       |${W}     >>=====>>     ${RB}|${NC}"
@@ -371,14 +404,108 @@ show_war_banner() {
 # ════════════════════════════════════════════════════════════════
 #  DEPENDENCIES
 # ════════════════════════════════════════════════════════════════
+# ── Tool dependency map: tool -> what it needs before running ──────────────
+# Used by the launch layer to auto-install prerequisites.
+# Format: "apt:pkg1,pkg2|pip:pkg1,pkg2|go:pkg@latest"
+declare -A TOOL_DEPS=(
+  [theHarvester]="pip:dnspython,requests,censys,shodan"
+  [recon-ng]="pip:dnspython,requests"
+  [GHunt]="pip:requests,colorama,prompt_toolkit"
+  [BloodHound.py]="pip:dnspython,impacket"
+  [mitm6]="pip:impacket,dnspython"
+  [eaphammer]="apt:hostapd,libssl-dev|pip:requests"
+  [subfinder]="apt:libpcap-dev"
+  [amass]="apt:libpcap-dev"
+  [naabu]="apt:libpcap-dev"
+  [wifiphisher]="apt:hostapd,dnsmasq"
+  [bettercap]="apt:libpcap-dev,libnetfilter-queue-dev"
+  [spiderfoot]="pip:dnspython,requests,pycryptodome"
+  [arjun]="pip:requests,colorama"
+  [censys]="pip:requests"
+  [shodan]="pip:requests"
+)
+
 install_dependencies() {
   log_step "1" "Installing system dependencies..."
   apt-get update -qq
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
     tmux curl wget git python3 python3-pip python3-venv \
     nmap tshark whois nikto build-essential golang-go \
-    ruby ruby-dev libpcap-dev libssl-dev php 2>/dev/null
-  log_ok "Dependencies ready"
+    ruby ruby-dev libpcap-dev libssl-dev php jq \
+    dnsrecon masscan rtl-sdr librtlsdr-dev \
+    hcxtools hcxdumptool airgraph-ng \
+    hashcat medusa hydra aircrack-ng \
+    gobuster ffuf sqlmap commix nikto wpscan \
+    amass subfinder whois dnsrecon \
+    gqrx-sdr 2>/dev/null
+  log_ok "System packages ready"
+
+  # ── pip3 core libraries (non-interactive) ─────────────────────
+  log_info "Installing Python security libraries..."
+  pip3 install -q --break-system-packages \
+    dnspython censys shodan impacket colorama \
+    prompt_toolkit requests pycryptodome arjun \
+    mitm6 holehe maigret 2>/dev/null || true
+  log_ok "Python libraries ready"
+
+  # ── Go tools (installed to ~/go/bin, added to PATH) ───────────
+  if command -v go &>/dev/null; then
+    log_info "Installing Go security tools..."
+    export GOPATH="$HOME/go"
+    export PATH="$PATH:$GOPATH/bin"
+    local go_tools=(
+      "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest"
+      "github.com/projectdiscovery/httpx/cmd/httpx@latest"
+      "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"
+      "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+      "github.com/projectdiscovery/dnsx/cmd/dnsx@latest"
+      "github.com/ffuf/ffuf/v2@latest"
+      "github.com/lc/gau/v2/cmd/gau@latest"
+      "github.com/tomnomnom/assetfinder@latest"
+      "github.com/sundowndev/phoneinfoga/v2@latest"
+      "github.com/jaeles-project/jaeles@latest"
+      "github.com/codesenberg/bombardier@latest"
+    )
+    for pkg in "${go_tools[@]}"; do
+      go install -v "$pkg" 2>/dev/null || true
+    done
+    # Make sure ~/go/bin is in PATH permanently
+    local bashrc="$HOME/.bashrc"
+    grep -q 'GOPATH/bin' "$bashrc" 2>/dev/null || \
+      echo 'export PATH="$PATH:$HOME/go/bin"' >> "$bashrc"
+    log_ok "Go tools ready"
+  else
+    log_warn "Go not found - skipping Go tool installs"
+  fi
+
+  log_ok "All dependencies ready"
+}
+
+# ── install_tool_deps: auto-install prereqs for a given tool ─────────────
+install_tool_deps() {
+  local tool="$1"
+  local dep_str="${TOOL_DEPS[$tool]:-}"
+  [[ -z "$dep_str" ]] && return 0
+
+  IFS='|' read -ra dep_groups <<< "$dep_str"
+  for group in "${dep_groups[@]}"; do
+    local type="${group%%:*}"
+    local pkgs="${group#*:}"
+    case "$type" in
+      apt)
+        IFS=',' read -ra apt_list <<< "$pkgs"
+        for p in "${apt_list[@]}"; do
+          command -v "$p" &>/dev/null || \
+            apt-get install -y -qq "$p" 2>/dev/null || true
+        done ;;
+      pip)
+        IFS=',' read -ra pip_list <<< "$pkgs"
+        pip3 install -q --break-system-packages "${pip_list[@]}" 2>/dev/null || true ;;
+      go)
+        command -v go &>/dev/null && \
+          go install -v "$pkgs" 2>/dev/null || true ;;
+    esac
+  done
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -532,6 +659,8 @@ install_tool() {
       return 1
     }
   fi
+  # Install any prerequisites this tool needs
+  install_tool_deps "$name"
   _post_install "$dest" "$itype"
   log_ok "$name installed"
 }
@@ -1303,8 +1432,8 @@ show_banner() {
   echo -e "${D}${C}                                  /|\\       /|\\${NC}"
   # ── Sails: red stripe / white fill alternating ─────────────────────────
   echo -e "${RB}              +==================+       +==================+${NC}"
-  echo -e "${RB}              |${W}~~~~~~~~~~~~~~~~~~${RB}|       |${W}~~~~~~~~~~~~~~~~~~${RB}|${NC}"
-  echo -e "${RB}              |${W} ~ ~ WIND ~ ~ ~ ~${RB}|       |${W} ~ ~ WIND ~ ~ ~ ~${RB}|${NC}"
+  echo -e "${RB}              |${RB}//////////////////|       |${RB}//////////////////|${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
   echo -e "${RB}              +==================+       +==================+${NC}"
   echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
   echo -e "${RB}              |${W}     >>=====>>     ${RB}|       |${W}     >>=====>>     ${RB}|${NC}"
@@ -1391,7 +1520,7 @@ show_help() {
     "PHISHING:setoolkit|social engineer toolkit:evilginx|reverse proxy phishing"
     "ANONYMITY:anonsurf|route traffic via Tor"
     "ARSENAL & MODEL:arsenal|browse + install all tools:model|switch AI models:model <name>|quick switch"
-    "SYSTEM:help|this menu:history|session log:banner|redraw banner:quit|leave VIKING"
+    "SYSTEM:update|pull latest version from GitHub:help|this menu:history|session log:banner|redraw banner:quit|leave VIKING"
   )
 
   for section in "${sections[@]}"; do
