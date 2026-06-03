@@ -56,9 +56,9 @@ ARSENAL[4]="RED_HAWK|Scanning & Recon|https://github.com/Tuhinshubhra/RED_HAWK.g
 ARSENAL[5]="reconspider|Scanning & Recon|https://github.com/bhavsec/reconspider.git|git_python"
 ARSENAL[6]="ReconDog|Scanning & Recon|https://github.com/s0md3v/ReconDog.git|git_python"
 ARSENAL[7]="Striker|Scanning & Recon|https://github.com/s0md3v/Striker.git|git_python"
-ARSENAL[8]="SecretFinder|Scanning & Recon|https://github.com/m4ll0k/SecretFinder.git|git_python"
+ARSENAL[8]="SecretFinder|Web Tools|https://github.com/m4ll0k/SecretFinder.git|git_python"
 ARSENAL[9]="rang3r|Scanning & Recon|https://github.com/floriankunushevci/rang3r.git|git_python"
-ARSENAL[10]="Breacher|Scanning & Recon|https://github.com/s0md3v/Breacher.git|git_python"
+ARSENAL[10]="Breacher|Web Scanning|https://github.com/s0md3v/Breacher.git|git_python"
 ARSENAL[11]="theHarvester|Scanning & Recon|https://github.com/laramies/theHarvester.git|git_python"
 ARSENAL[12]="spiderfoot|Scanning & Recon|https://github.com/smicallef/spiderfoot.git|git_python"
 
@@ -67,7 +67,7 @@ ARSENAL[13]="nmap|Network Tools|https://github.com/nmap/nmap.git|apt_install:nma
 ARSENAL[14]="masscan|Network Tools|https://github.com/robertdavidgraham/masscan.git|apt_install:masscan"
 ARSENAL[15]="RustScan|Network Tools|https://github.com/bee-san/RustScan.git|git_generic"
 ARSENAL[16]="xerosploit|Network Tools|https://github.com/LionSec/xerosploit.git|git_python"
-ARSENAL[17]="amass|Network Tools|https://github.com/owasp-amass/amass.git|apt_install:amass"
+ARSENAL[17]="amass|Scanning & Recon|https://github.com/owasp-amass/amass.git|apt_install:amass"
 ARSENAL[18]="httpx|Network Tools|https://github.com/projectdiscovery/httpx.git|git_go"
 ARSENAL[19]="subfinder|Network Tools|https://github.com/projectdiscovery/subfinder.git|git_go"
 ARSENAL[90]="naabu|Network Tools|https://github.com/projectdiscovery/naabu.git|git_go"
@@ -118,9 +118,9 @@ ARSENAL[47]="trufflehog|OSINT|https://github.com/trufflesecurity/trufflehog.git|
 ARSENAL[48]="gitleaks|OSINT|https://github.com/gitleaks/gitleaks.git|git_go"
 ARSENAL[49]="SMWYG|OSINT|https://github.com/Viralmaniar/SMWYG-Show-Me-What-You-Got.git|git_python"
 ARSENAL[91]="sherlock|OSINT|https://github.com/sherlock-project/sherlock.git|apt_install:sherlock"
-ARSENAL[107]="waybackurls|OSINT|https://github.com/tomnomnom/waybackurls.git|git_go"
-ARSENAL[108]="gau|OSINT|https://github.com/lc/gau.git|git_go"
-ARSENAL[109]="hakrawler|OSINT|https://github.com/hakluke/hakrawler.git|git_go"
+ARSENAL[107]="waybackurls|Web Scanning|https://github.com/tomnomnom/waybackurls.git|git_go"
+ARSENAL[108]="gau|Web Scanning|https://github.com/lc/gau.git|git_go"
+ARSENAL[109]="hakrawler|Web Scanning|https://github.com/hakluke/hakrawler.git|git_go"
 
 # Wordlist
 ARSENAL[50]="cupp|Wordlist|https://github.com/Mebus/cupp.git|git_python"
@@ -145,8 +145,8 @@ ARSENAL[64]="BlackPhish|Phishing|https://github.com/yangr0/BlackPhish.git|git_py
 ARSENAL[65]="dirb|Web Tools|https://gitlab.com/kalilinux/packages/dirb.git|apt_install:dirb"
 ARSENAL[66]="takeover|Web Tools|https://github.com/edoardottt/takeover.git|git_go"
 ARSENAL[67]="checkURL|Web Tools|https://github.com/UndeadSec/checkURL.git|git_python"
-ARSENAL[68]="Sublist3r|Web Tools|https://github.com/aboul3la/Sublist3r.git|git_python"
-ARSENAL[69]="web2attack|Web Tools|https://github.com/santatic/web2attack.git|git_python"
+ARSENAL[68]="Sublist3r|Scanning & Recon|https://github.com/aboul3la/Sublist3r.git|git_python"
+ARSENAL[69]="web2attack|Web Scanning|https://github.com/santatic/web2attack.git|git_python"
 ARSENAL[83]="commix|Web Scanning|https://github.com/commixproject/commix.git|apt_install:commix"
 ARSENAL[84]="wpscan|Web Scanning|https://github.com/wpscanteam/wpscan.git|apt_install:wpscan"
 ARSENAL[85]="ffuf|Web Scanning|https://github.com/ffuf/ffuf.git|apt_install:ffuf"
@@ -218,10 +218,10 @@ ARSENAL[129]="mitm6|Active Directory|https://github.com/dirkjanm/mitm6.git|pip_i
 # Web & Fuzzing
 ARSENAL[130]="jaeles|Web Scanning|https://github.com/jaeles-project/jaeles.git|git_go"
 ARSENAL[131]="arjun|Web Scanning|https://github.com/s0md3v/Arjun.git|pip_install:arjun"
-ARSENAL[132]="vulhub|Exploitation|https://github.com/vulhub/vulhub.git|git_generic"
+ARSENAL[132]="vulhub|Lab & Training|https://github.com/vulhub/vulhub.git|git_generic"
 
 # C2 & Phishing
-ARSENAL[133]="gophish|C2 Frameworks|https://github.com/gophish/gophish.git|git_go"
+ARSENAL[133]="gophish|Phishing|https://github.com/gophish/gophish.git|git_go"
 ARSENAL[134]="zphisher|Phishing|https://github.com/htr-tech/zphisher.git|git_generic"
 
 # Wordlists & Resources
@@ -233,7 +233,7 @@ ARSENAL[136]="bombardier|Web Scanning|https://github.com/codesenberg/bombardier.
 # Python pip3 tools (managed as arsenal entries)
 ARSENAL[137]="shodan|OSINT|https://github.com/achillean/shodan-python.git|pip_install:shodan"
 ARSENAL[138]="censys|OSINT|https://github.com/censys/censys-python.git|pip_install:censys"
-ARSENAL[139]="dnspython|Scanning & Recon|https://github.com/rthalley/dnspython.git|pip_install:dnspython"
+ARSENAL[139]="blackbird|OSINT|https://github.com/p1ngul1n0/blackbird.git|git_python"
 
 # ════════════════════════════════════════════════════════════════
 #  KNOWN ENTRYPOINTS MAP
@@ -2426,36 +2426,187 @@ handle_input() {
   fi
 
   # ── GENERIC OPEN/LAUNCH/RUN/START ────────────────────────────
+  # Handles: "open <tool>", "launch <tool>", "run <tool>", "start <tool>"
+  # Logic: ALWAYS try to launch first. Only ask to install if launch fails.
   if match "$INPUT" "^(open|launch|run|start)[[:space:]]+"; then
-    local tname; tname=$(echo "$INPUT" | awk '{print tolower($2)}')
-    local raw_tname; raw_tname=$(echo "$INPUT" | awk '{print $2}')
-    case "$tname" in
+    # Extract everything after the verb — supports multi-word tool names
+    local _verb _user_tool
+    _verb=$(echo "$INPUT" | awk '{print tolower($1)}')
+    _user_tool=$(echo "$INPUT" | awk '{$1=""; sub(/^ /, ""); print}')
+
+    # ── Normalise: map any user-typed variant to the correct arsenal name ──
+    # This lookup covers all 139 arsenal tools plus common aliases
+    declare -A _NAMES=(
+      # Scanning & Recon
+      [webcheck]="WebCheck"           [death_star]="DEATH_STAR"
+      [death-star]="DEATH_STAR"       [deathstar]="DEATH_STAR"
+      [dracnmap]="Dracnmap"           [red_hawk]="RED_HAWK"
+      [red-hawk]="RED_HAWK"           [redhawk]="RED_HAWK"
+      [reconspider]="reconspider"     [recondog]="ReconDog"
+      [striker]="Striker"             [rang3r]="rang3r"
+      [theharvester]="theHarvester"   [harvester]="theHarvester"
+      [spiderfoot]="spiderfoot"       [sublist3r]="Sublist3r"
+      [recon-ng]="recon-ng"           [reconng]="recon-ng"
+      [assetfinder]="assetfinder"     [findomain]="findomain"
+      [amass]="amass"
+      # Network Tools
+      [nmap]="nmap"                   [masscan]="masscan"
+      [rustscan]="RustScan"           [rust-scan]="RustScan"
+      [xerosploit]="xerosploit"       [httpx]="httpx"
+      [subfinder]="subfinder"         [naabu]="naabu"
+      [dnsx]="dnsx"
+      # XSS Tools
+      [dalfox]="dalfox"               [xss-loader]="XSS-LOADER"
+      [xssloader]="XSS-LOADER"        [xspear]="XSpear"
+      [xsscon]="XSSCon"               [xanxss]="XanXSS"
+      [xsstrike]="XSStrike"           [xss-strike]="XSStrike"
+      [rvuln]="RVuln"
+      # SQL Injection
+      [sqlmap]="sqlmap"               [nosqlmap]="NoSQLMap"
+      [no-sql-map]="NoSQLMap"         [dsss]="DSSS"
+      [explo]="explo"                 [blisqy]="Blisqy"
+      [leviathan]="leviathan"         [sqlscan]="sqlscan"
+      # WiFi Tools
+      [oneshot]="OneShot"             [one-shot]="OneShot"
+      [wifipumpkin3]="wifipumpkin3"   [pumpkin3]="wifipumpkin3"
+      [pumpkin]="wifipumpkin3"        [pixiewps]="pixiewps"
+      [bluepot]="bluepot"             [fluxion]="fluxion"
+      [wifiphisher]="wifiphisher"     [wifite2]="wifite2"
+      [wifite]="wifite2"              [fakeap]="fakeap"
+      [airgeddon]="airgeddon"         [aircrack]="aircrack-ng"
+      [aircrack-ng]="aircrack-ng"     [bettercap]="bettercap"
+      [hcxdumptool]="hcxdumptool"     [hcxtools]="hcxtools"
+      [eaphammer]="eaphammer"
+      # Anonymity
+      [anonsurf]="kali-anonsurf"      [kali-anonsurf]="kali-anonsurf"
+      [multitor]="multitor"
+      # OSINT
+      [holehe]="holehe"               [maigret]="maigret"
+      [trufflehog]="trufflehog"       [truffle]="trufflehog"
+      [gitleaks]="gitleaks"           [smwyg]="SMWYG"
+      [sherlock]="sherlock"           [phoneinfoga]="phoneinfoga"
+      [ghunt]="GHunt"                 [shodan]="shodan"
+      [censys]="censys"               [blackbird]="blackbird"
+      # Wordlist
+      [cupp]="cupp"                   [wlcreator]="wlcreator"
+      [goblinwordgenerator]="GoblinWordGenerator"
+      [goblin]="GoblinWordGenerator"  [seclists]="SecLists"
+      # Phishing
+      [autophisher]="autophisher"     [advphishing]="AdvPhishing"
+      [set]="SET"                     [setoolkit]="SET"
+      [se-toolkit]="SET"              [socialfish]="SocialFish"
+      [evilginx2]="evilginx2"         [evilginx]="evilginx2"
+      [i-see-you]="I-See-You"         [iseeyou]="I-See-You"
+      [saycheese]="saycheese"         [ohmyqr]="ohmyqr"
+      [thanos]="Thanos"               [qrljacking]="QRLJacking"
+      [maskphish]="maskphish"         [blackphish]="BlackPhish"
+      [zphisher]="zphisher"           [gophish]="gophish"
+      # Web Tools
+      [dirb]="dirb"                   [takeover]="takeover"
+      [checkurl]="checkURL"           [secretfinder]="SecretFinder"
+      [secret-finder]="SecretFinder"
+      # Web Scanning
+      [gobuster]="gobuster"           [ffuf]="ffuf"
+      [feroxbuster]="feroxbuster"     [dirsearch]="dirsearch"
+      [commix]="commix"               [wpscan]="wpscan"
+      [katana]="katana"               [jaeles]="jaeles"
+      [arjun]="arjun"                 [web2attack]="web2attack"
+      [waybackurls]="waybackurls"     [gau]="gau"
+      [hakrawler]="hakrawler"         [bombardier]="bombardier"
+      [breacher]="Breacher"           [nikto]="nikto"
+      # Exploitation
+      [vegile]="Vegile"               [herakeylogger]="HeraKeylogger"
+      [hera]="HeraKeylogger"          [bulk_extractor]="bulk_extractor"
+      [bulk-extractor]="bulk_extractor"
+      [thefatrat]="TheFatRat"         [fatrat]="TheFatRat"
+      [brutal]="Brutal"               [msfpc]="msfpc"
+      [venom]="venom"                 [spycam]="spycam"
+      [mob-droid]="Mob-Droid"         [mobdroid]="Mob-Droid"
+      [enigma]="Enigma"               [vulhub]="vulhub"
+      # Active Directory
+      [netexec]="netexec"             [nxc]="netexec"
+      [cme]="netexec"                 [responder]="responder"
+      [impacket]="impacket"           [bloodhound]="bloodhound"
+      [certipy]="certipy"             [bloodhound.py]="BloodHound.py"
+      [bloodhound-py]="BloodHound.py" [mitm6]="mitm6"
+      # Password Cracking
+      [hashcat]="hashcat"             [john]="john"
+      [hydra]="hydra"                 [name-that-hash]="name-that-hash"
+      [nth]="name-that-hash"
+      # C2 Frameworks
+      [metasploit]="metasploit"       [msf]="metasploit"
+      [msfconsole]="metasploit"       [sliver]="sliver"
+      [havoc]="havoc"                 [empire]="empire"
+      # Vulnerability Scanning
+      [nuclei]="nuclei"
+      # Post Exploitation
+      [peass]="PEASS-ng"              [peass-ng]="PEASS-ng"
+      [linpeas]="PEASS-ng"            [pspy]="pspy"
+      # RTL-SDR
+      [rtl-sdr]="rtl-sdr"             [rtlsdr]="rtl-sdr"
+      [dump1090]="dump1090"           [rtl_433]="rtl_433"
+      [rtl433]="rtl_433"              [gqrx]="gqrx"
+      [gnuradio]="gnuradio"           [multimon-ng]="multimon-ng"
+      [multimon]="multimon-ng"        [kalibrate-rtl]="kalibrate-rtl"
+      [kal]="kalibrate-rtl"           [urh]="urh"
+      # OSINT extras
+      [recon-ng]="recon-ng"           [mitm6]="mitm6"
+    )
+
+    # Lookup: try exact, then lowercase, then strip special chars
+    local _low_tool="${_user_tool,,}"
+    local _strip_tool; _strip_tool=$(echo "$_low_tool" | tr -d ' -_.')
+    local _resolved_tool="${_NAMES[$_low_tool]:-${_NAMES[$_strip_tool]:-$_user_tool}}"
+
+    # ── GUI tools need display check, handle separately ────────────────────
+    case "$_low_tool" in
       wireshark)
-        launch_gui "wireshark" "Use: sudo tshark -i eth0" ;;
-      burp|burpsuite)
-        launch_gui "burpsuite" "Use: nikto -h <target> for CLI web scanning" ;;
+        launch_gui "wireshark" "Use: sudo tshark -i eth0"; return 0 ;;
+      burp|burpsuite|burp*suite)
+        launch_gui "burpsuite" "Use: nikto -h <target> for CLI web scanning"; return 0 ;;
       chrome|google-chrome)
-        launch_gui "google-chrome" "Use: curl or wget instead" ;;
+        launch_gui "google-chrome" "Use: curl or wget instead"; return 0 ;;
       firefox)
-        launch_gui "firefox" "Use: curl or wget instead" ;;
+        launch_gui "firefox" "Use: curl or wget instead"; return 0 ;;
       zap|owasp-zap|zaproxy)
-        launch_gui "zaproxy" "Use: nikto for CLI scanning" ;;
+        launch_gui "zaproxy" "Use: nikto for CLI scanning"; return 0 ;;
       maltego)
-        launch_gui "maltego" "Use: theHarvester or spiderfoot for CLI OSINT" ;;
-      msf|msfconsole|metasploit)
-        if ! _tool_available msfconsole; then _prompt_install msfconsole || return 0; fi
-        v_info "Launching msfconsole..."
-        msfconsole ;;
-      nmap)
-        v_info "Launching nmap..."
-        sudo nmap ;;
-      *)
-        # Check if installed first
-        if ! _tool_available "$raw_tname"; then
-          v_info "Checking if $raw_tname needs to be installed..."
-          _prompt_install "$raw_tname" || return 0
-        fi
-        launch_tool "$raw_tname" ;;
+        launch_gui "maltego" "Use: theHarvester or spiderfoot for CLI OSINT"; return 0 ;;
+    esac
+
+    # ── ALWAYS TRY TO LAUNCH FIRST — ask to install only if launch fails ──
+    v_info "Trying to launch: $_resolved_tool"
+    if launch_tool "$_resolved_tool"; then
+      return 0
+    fi
+
+    # Launch failed or not found — ask user what to do
+    echo ""
+    echo -e "${Y}  [!] Could not launch: $_resolved_tool${NC}"
+    echo -e "  ${C}[1]${NC}  Install via arsenal"
+    local _apt_pkg="${_APT[${_low_tool}]:-${_APT[${_resolved_tool,,}]:-}}"
+    if [[ -n "$_apt_pkg" ]]; then
+      echo -e "  ${C}[2]${NC}  Quick install: sudo apt install $_apt_pkg"
+    fi
+    echo -e "  ${C}[3]${NC}  Show me how to install it manually"
+    echo -e "  ${C}[4]${NC}  Skip"
+    echo -ne "  ${Y}Choice: ${NC}"
+    local _ic; read -r _ic
+    case "$_ic" in
+      1) bash "$VIKING_DIR/arsenal_menu.sh" ;;
+      2)
+        if [[ -n "$_apt_pkg" ]]; then
+          v_info "Installing $_apt_pkg..."
+          if sudo apt-get install -y -qq "$_apt_pkg" 2>/dev/null; then
+            v_ok "Installed. Launching $_resolved_tool..."
+            launch_tool "$_resolved_tool"
+          fi
+        else
+          v_err "No apt package known for $_resolved_tool"
+          bash "$VIKING_DIR/arsenal_menu.sh"
+        fi ;;
+      3) ai_response "How do I install $_resolved_tool on Kali Linux? Give exact commands." ;;
+      *) v_info "Skipped." ;;
     esac
     return 0
   fi
