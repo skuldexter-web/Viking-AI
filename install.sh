@@ -50,15 +50,8 @@ declare -A ARSENAL
 
 # Scanning & Recon
 ARSENAL[1]="WebCheck|Scanning & Recon|https://github.com/X3RX3SSec/WebCheck.git|git_python"
-ARSENAL[2]="DEATH_STAR|Scanning & Recon|https://github.com/Ringmast4r/DEATH_STAR.git|git_python"
-ARSENAL[3]="Dracnmap|Scanning & Recon|https://github.com/screetsec/Dracnmap.git|git_python"
 ARSENAL[4]="RED_HAWK|Scanning & Recon|https://github.com/Tuhinshubhra/RED_HAWK.git|git_python"
-ARSENAL[5]="reconspider|Scanning & Recon|https://github.com/bhavsec/reconspider.git|git_python"
-ARSENAL[6]="ReconDog|Scanning & Recon|https://github.com/s0md3v/ReconDog.git|git_python"
-ARSENAL[7]="Striker|Scanning & Recon|https://github.com/s0md3v/Striker.git|git_python"
 ARSENAL[8]="SecretFinder|Web Tools|https://github.com/m4ll0k/SecretFinder.git|git_python"
-ARSENAL[9]="rang3r|Scanning & Recon|https://github.com/floriankunushevci/rang3r.git|git_python"
-ARSENAL[10]="Breacher|Web Scanning|https://github.com/s0md3v/Breacher.git|git_python"
 ARSENAL[11]="theHarvester|Scanning & Recon|https://github.com/laramies/theHarvester.git|git_python"
 ARSENAL[12]="spiderfoot|Scanning & Recon|https://github.com/smicallef/spiderfoot.git|git_python"
 
@@ -66,7 +59,6 @@ ARSENAL[12]="spiderfoot|Scanning & Recon|https://github.com/smicallef/spiderfoot
 ARSENAL[13]="nmap|Network Tools|https://github.com/nmap/nmap.git|apt_install:nmap"
 ARSENAL[14]="masscan|Network Tools|https://github.com/robertdavidgraham/masscan.git|apt_install:masscan"
 ARSENAL[15]="RustScan|Network Tools|https://github.com/bee-san/RustScan.git|git_generic"
-ARSENAL[16]="xerosploit|Network Tools|https://github.com/LionSec/xerosploit.git|git_python"
 ARSENAL[17]="amass|Scanning & Recon|https://github.com/owasp-amass/amass.git|apt_install:amass"
 ARSENAL[18]="httpx|Network Tools|https://github.com/projectdiscovery/httpx.git|git_go"
 ARSENAL[19]="subfinder|Network Tools|https://github.com/projectdiscovery/subfinder.git|git_go"
@@ -75,33 +67,24 @@ ARSENAL[104]="dnsx|Network Tools|https://github.com/projectdiscovery/dnsx.git|gi
 
 # XSS Tools
 ARSENAL[20]="dalfox|XSS Tools|https://github.com/hahwul/dalfox.git|git_go"
-ARSENAL[21]="XSS-LOADER|XSS Tools|https://github.com/capture0x/XSS-LOADER.git|git_python"
-ARSENAL[22]="extended-xss-search|XSS Tools|https://github.com/Damian89/extended-xss-search.git|git_python"
 ARSENAL[23]="XSpear|XSS Tools|https://github.com/hahwul/XSpear.git|git_generic"
-ARSENAL[24]="XSSCon|XSS Tools|https://github.com/menkrep1337/XSSCon.git|git_python"
-ARSENAL[25]="XanXSS|XSS Tools|https://github.com/Ekultek/XanXSS.git|git_python"
 ARSENAL[26]="XSStrike|XSS Tools|https://github.com/s0md3v/XSStrike.git|git_python"
-ARSENAL[27]="RVuln|XSS Tools|https://github.com/yangr0/RVuln.git|git_python"
 
 # SQL Injection
 ARSENAL[28]="sqlmap|SQL Injection|https://github.com/sqlmapproject/sqlmap.git|apt_install:sqlmap"
 ARSENAL[29]="NoSQLMap|SQL Injection|https://github.com/codingo/NoSQLMap.git|git_python"
 ARSENAL[30]="DSSS|SQL Injection|https://github.com/stamparm/DSSS.git|git_python"
-ARSENAL[31]="explo|SQL Injection|https://github.com/telekom-security/explo.git|git_python"
-ARSENAL[32]="Blisqy|SQL Injection|https://github.com/JohnTroony/Blisqy.git|git_python"
-ARSENAL[33]="leviathan|SQL Injection|https://github.com/utkusen/leviathan.git|git_python"
-ARSENAL[34]="sqlscan|SQL Injection|https://github.com/Cvar1984/sqlscan.git|git_python"
 
 # WiFi Tools
 ARSENAL[35]="OneShot|WiFi Tools|https://github.com/kimocoder/OneShot.git|git_python"
 ARSENAL[36]="wifipumpkin3|WiFi Tools|https://github.com/P0cL4bs/wifipumpkin3.git|git_python"
 ARSENAL[37]="pixiewps|WiFi Tools|https://github.com/wiire-a/pixiewps.git|apt_install:pixiewps"
-ARSENAL[38]="bluepot|WiFi Tools|https://github.com/andrewmichaelsmith/bluepot.git|git_generic"
+ARSENAL[38]="bluepot|Bluetooth|https://github.com/andrewmichaelsmith/bluepot.git|git_generic"
+ARSENAL[140]="btlejack|Bluetooth|https://github.com/virtualabs/btlejack.git|pip_install:btlejack"
+ARSENAL[141]="bluesnarfer|Bluetooth|https://github.com/Sante51/bluesnarfer.git|git_generic"
 ARSENAL[39]="fluxion|WiFi Tools|https://github.com/FluxionNetwork/fluxion.git|git_generic"
 ARSENAL[40]="wifiphisher|WiFi Tools|https://github.com/wifiphisher/wifiphisher.git|git_python"
 ARSENAL[41]="wifite2|WiFi Tools|https://github.com/derv82/wifite2.git|git_python"
-ARSENAL[42]="fakeap|WiFi Tools|https://github.com/Z4nzu/fakeap.git|git_python"
-ARSENAL[80]="airgeddon|WiFi Tools|https://github.com/v1s1t0r1sh3r3/airgeddon.git|apt_install:airgeddon"
 ARSENAL[81]="aircrack-ng|WiFi Tools|https://github.com/aircrack-ng/aircrack-ng.git|apt_install:aircrack-ng"
 ARSENAL[82]="bettercap|WiFi Tools|https://github.com/bettercap/bettercap.git|apt_install:bettercap"
 ARSENAL[105]="hcxdumptool|WiFi Tools|https://github.com/ZerBea/hcxdumptool.git|apt_install:hcxdumptool"
@@ -115,8 +98,6 @@ ARSENAL[44]="multitor|Anonymity|https://github.com/trimstray/multitor.git|git_ge
 ARSENAL[45]="holehe|OSINT|https://github.com/megadose/holehe.git|pip_install:holehe"
 ARSENAL[46]="maigret|OSINT|https://github.com/soxoj/maigret.git|pip_install:maigret"
 ARSENAL[47]="trufflehog|OSINT|https://github.com/trufflesecurity/trufflehog.git|git_go"
-ARSENAL[48]="gitleaks|OSINT|https://github.com/gitleaks/gitleaks.git|git_go"
-ARSENAL[49]="SMWYG|OSINT|https://github.com/Viralmaniar/SMWYG-Show-Me-What-You-Got.git|git_python"
 ARSENAL[91]="sherlock|OSINT|https://github.com/sherlock-project/sherlock.git|apt_install:sherlock"
 ARSENAL[107]="waybackurls|Web Scanning|https://github.com/tomnomnom/waybackurls.git|git_go"
 ARSENAL[108]="gau|Web Scanning|https://github.com/lc/gau.git|git_go"
@@ -124,29 +105,14 @@ ARSENAL[109]="hakrawler|Web Scanning|https://github.com/hakluke/hakrawler.git|gi
 
 # Wordlist
 ARSENAL[50]="cupp|Wordlist|https://github.com/Mebus/cupp.git|git_python"
-ARSENAL[51]="wlcreator|Wordlist|https://github.com/Z4nzu/wlcreator.git|git_python"
-ARSENAL[52]="GoblinWordGenerator|Wordlist|https://github.com/UndeadSec/GoblinWordGenerator.git|git_python"
 
 # Phishing
-ARSENAL[53]="autophisher|Phishing|https://github.com/CodingRanjith/autophisher.git|git_python"
-ARSENAL[54]="AdvPhishing|Phishing|https://github.com/Ignitetch/AdvPhishing.git|git_python"
 ARSENAL[55]="SET|Phishing|https://github.com/trustedsec/social-engineer-toolkit.git|git_python"
 ARSENAL[56]="SocialFish|Phishing|https://github.com/UndeadSec/SocialFish.git|git_python"
 ARSENAL[57]="evilginx2|Phishing|https://github.com/kgretzky/evilginx2.git|git_go"
-ARSENAL[58]="I-See-You|Phishing|https://github.com/Viralmaniar/I-See-You.git|git_python"
-ARSENAL[59]="saycheese|Phishing|https://github.com/hangetzzu/saycheese.git|git_python"
-ARSENAL[60]="ohmyqr|Phishing|https://github.com/cryptedwolf/ohmyqr.git|git_python"
-ARSENAL[61]="Thanos|Phishing|https://github.com/TridevReddy/Thanos.git|git_python"
-ARSENAL[62]="QRLJacking|Phishing|https://github.com/OWASP/QRLJacking.git|git_python"
-ARSENAL[63]="maskphish|Phishing|https://github.com/jaykali/maskphish.git|git_generic"
-ARSENAL[64]="BlackPhish|Phishing|https://github.com/yangr0/BlackPhish.git|git_python"
 
 # Web Tools
-ARSENAL[65]="dirb|Web Tools|https://gitlab.com/kalilinux/packages/dirb.git|apt_install:dirb"
 ARSENAL[66]="takeover|Web Tools|https://github.com/edoardottt/takeover.git|git_go"
-ARSENAL[67]="checkURL|Web Tools|https://github.com/UndeadSec/checkURL.git|git_python"
-ARSENAL[68]="Sublist3r|Scanning & Recon|https://github.com/aboul3la/Sublist3r.git|git_python"
-ARSENAL[69]="web2attack|Web Scanning|https://github.com/santatic/web2attack.git|git_python"
 ARSENAL[83]="commix|Web Scanning|https://github.com/commixproject/commix.git|apt_install:commix"
 ARSENAL[84]="wpscan|Web Scanning|https://github.com/wpscanteam/wpscan.git|apt_install:wpscan"
 ARSENAL[85]="ffuf|Web Scanning|https://github.com/ffuf/ffuf.git|apt_install:ffuf"
@@ -156,16 +122,10 @@ ARSENAL[88]="feroxbuster|Web Scanning|https://github.com/epi052/feroxbuster.git|
 ARSENAL[89]="katana|Web Scanning|https://github.com/projectdiscovery/katana.git|git_go"
 
 # Exploitation
-ARSENAL[70]="Vegile|Exploitation|https://github.com/screetsec/Vegile.git|git_generic"
-ARSENAL[71]="HeraKeylogger|Exploitation|https://github.com/UndeadSec/HeraKeylogger.git|git_python"
 ARSENAL[72]="bulk_extractor|Exploitation|https://github.com/simsong/bulk_extractor.git|apt_install:bulk-extractor"
 ARSENAL[73]="TheFatRat|Exploitation|https://github.com/screetsec/TheFatRat.git|git_generic"
-ARSENAL[74]="Brutal|Exploitation|https://github.com/screetsec/Brutal.git|git_generic"
 ARSENAL[75]="msfpc|Exploitation|https://github.com/g0tmi1k/msfpc.git|git_generic"
 ARSENAL[76]="venom|Exploitation|https://github.com/r00t-3xp10it/venom.git|git_generic"
-ARSENAL[77]="spycam|Exploitation|https://github.com/indexnotfound404/spycam.git|git_python"
-ARSENAL[78]="Mob-Droid|Exploitation|https://github.com/kinghacker0/Mob-Droid.git|git_python"
-ARSENAL[79]="Enigma|Exploitation|https://github.com/UndeadSec/Enigma.git|git_python"
 
 # Active Directory
 ARSENAL[92]="netexec|Active Directory|https://github.com/Pennyw0rth/NetExec.git|apt_install:netexec"
@@ -208,7 +168,6 @@ ARSENAL[122]="eaphammer|WiFi Tools|https://github.com/s0lst1c3/eaphammer.git|git
 
 # OSINT & Recon
 ARSENAL[123]="recon-ng|Scanning & Recon|https://github.com/lanmaster53/recon-ng.git|git_python"
-ARSENAL[124]="assetfinder|Scanning & Recon|https://github.com/tomnomnom/assetfinder.git|git_go"
 ARSENAL[125]="findomain|Scanning & Recon|https://github.com/findomain/findomain.git|git_generic"
 ARSENAL[126]="phoneinfoga|OSINT|https://github.com/sundowndev/phoneinfoga.git|git_go"
 ARSENAL[127]="GHunt|OSINT|https://github.com/mxrch/GHunt.git|git_python"
@@ -228,7 +187,6 @@ ARSENAL[134]="zphisher|Phishing|https://github.com/htr-tech/zphisher.git|git_gen
 ARSENAL[135]="SecLists|Wordlist|https://github.com/danielmiessler/SecLists.git|git_generic"
 
 # HTTP Benchmarking / Load Testing
-ARSENAL[136]="bombardier|Web Scanning|https://github.com/codesenberg/bombardier.git|git_go"
 
 # Python pip3 tools (managed as arsenal entries)
 ARSENAL[137]="shodan|OSINT|https://github.com/achillean/shodan-python.git|pip_install:shodan"
