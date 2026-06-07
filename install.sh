@@ -1,2326 +1,2969 @@
-#!/usr/bin/env bash
-# =============================================================================
-#
-#  ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗ ██████╗      █████╗ ██╗
-#  ██║   ██║██║██║ ██╔╝██║████╗  ██║██╔════╝     ██╔══██╗██║
-#  ██║   ██║██║█████╔╝ ██║██╔██╗ ██║██║  ███╗    ███████║██║
-#  ╚██╗ ██╔╝██║██╔═██╗ ██║██║╚██╗██║██║   ██║    ██╔══██║██║
-#   ╚████╔╝ ██║██║  ██╗██║██║ ╚████║╚██████╔╝    ██║  ██║██║
-#    ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═╝  ╚═╝╚═╝
-#
-#  VIKING-AI :: VIK INSTALLER v1.0.0
-#  Production-Grade Linux AI Command System
-#  Optimized for: Kali Linux | Debian | Ubuntu | Parrot OS
-#
-#  Author   : Viking-AI Project
-#  License  : MIT
-#  Platform : Linux (Debian-based)
-#
-# =============================================================================
-# USAGE:
-#   sudo bash install.sh            # Full install
-#   sudo bash install.sh --repair   # Repair existing install
-#   sudo bash install.sh --update   # Update existing install
-#   sudo bash install.sh --silent   # Non-interactive install
-# =============================================================================
+#!/bin/bash
 
-set -euo pipefail
-IFS=$'\n\t'
+# ================================================================
+#  VIKING AI - Digital Longship Intelligence System
+#  Local CLI Security Assistant for Kali Linux
+#  License: MIT | Instagram: @s.k.7.l.d
+# ================================================================
 
-# =============================================================================
-# GLOBAL CONSTANTS
-# =============================================================================
+# No global set -e — installer must tolerate individual tool failures.
+# set -u only — pipefail removed at top level (parallel war jobs need tolerance).
+set -u
 
-readonly VIKING_VERSION="1.0.0"
-readonly VIKING_CODENAME="RAGNAROK"
-readonly INSTALL_DIR="/opt/Viking-AI"
-readonly CONFIG_DIR="${INSTALL_DIR}/config"
-readonly PROMPTS_DIR="${INSTALL_DIR}/prompts"
-readonly LOGS_DIR="${INSTALL_DIR}/logs"
-readonly ARSENAL_DIR="${INSTALL_DIR}/arsenal"
-readonly MODELS_DIR="${INSTALL_DIR}/models"
-readonly CACHE_DIR="${INSTALL_DIR}/cache"
-readonly MODULES_DIR="${INSTALL_DIR}/modules"
-readonly THEMES_DIR="${INSTALL_DIR}/themes"
-readonly UI_DIR="${INSTALL_DIR}/ui"
-readonly TOOLS_DIR="${INSTALL_DIR}/tools"
-readonly TMP_DIR="${INSTALL_DIR}/tmp"
-readonly BACKUPS_DIR="${INSTALL_DIR}/backups"
+# ════════════════════════════════════════════════════════════════
+#  CONSTANTS
+# ════════════════════════════════════════════════════════════════
+readonly INSTALL_PATH="/usr/local/bin/viking"
+readonly DEFAULT_MODEL="tinyllama"
+readonly VIKING_DIR="/opt/viking"
+readonly ARSENAL_DIR="$VIKING_DIR/arsenal"
+readonly LOG_DIR="$VIKING_DIR/logs"
+readonly CONFIG_FILE="$VIKING_DIR/config"
+readonly REGISTRY_FILE="$VIKING_DIR/arsenal_registry.sh"
+readonly ARSENAL_MENU="$VIKING_DIR/arsenal_menu.sh"
+readonly LOCK_FILE="/tmp/viking_install.lock"
+readonly WAR_JOBS=4
+readonly GITHUB_RAW="https://raw.githubusercontent.com/skuldexter-web/Viking-AI/main/install.sh"
+readonly VIKING_VERSION="2.1.0"
 
-readonly LOG_FILE="${LOGS_DIR}/install.log"
-readonly ERROR_LOG="${LOGS_DIR}/error.log"
-readonly OLLAMA_LOG="${LOGS_DIR}/ollama.log"
-readonly ARSENAL_LOG="${LOGS_DIR}/arsenal.log"
+# ════════════════════════════════════════════════════════════════
+#  COLORS
+# ════════════════════════════════════════════════════════════════
+readonly R='\033[0;31m'
+readonly RB='\033[1;31m'
+readonly G='\033[0;32m'
+readonly C='\033[0;36m'
+readonly Y='\033[1;33m'
+readonly M='\033[0;35m'
+readonly B='\033[1m'
+readonly D='\033[2m'
+readonly W='\033[1;37m'
+readonly NC='\033[0m'
 
-readonly DEFAULT_MODEL="gemma3:1b"
-readonly OLLAMA_API="http://localhost:11434"
-readonly OLLAMA_TIMEOUT=120
+# ════════════════════════════════════════════════════════════════
+#  ARSENAL REGISTRY - single source of truth
+#  Format : "NAME|CATEGORY|GIT_URL|TYPE"
+#  Types  : git_python | git_go | git_generic | apt_install:<pkg> | pip_install:<pkg>
+#  !! Edit tool list HERE only - registry file is auto-generated !!
+# ════════════════════════════════════════════════════════════════
+declare -A ARSENAL
 
-readonly SCRIPT_START_TIME=$(date +%s)
+# Scanning & Recon
+ARSENAL[1]="WebCheck|Scanning & Recon|https://github.com/X3RX3SSec/WebCheck.git|git_python"
+ARSENAL[4]="RED_HAWK|Scanning & Recon|https://github.com/Tuhinshubhra/RED_HAWK.git|git_python"
+ARSENAL[8]="SecretFinder|Web Tools|https://github.com/m4ll0k/SecretFinder.git|git_python"
+ARSENAL[11]="theHarvester|Scanning & Recon|https://github.com/laramies/theHarvester.git|git_python"
+ARSENAL[12]="spiderfoot|Scanning & Recon|https://github.com/smicallef/spiderfoot.git|git_python"
 
-# =============================================================================
-# ANSI COLOR CODES — VIKING CYBERPUNK THEME
-# =============================================================================
+# Network Tools
+ARSENAL[13]="nmap|Network Tools|https://github.com/nmap/nmap.git|apt_install:nmap"
+ARSENAL[14]="masscan|Network Tools|https://github.com/robertdavidgraham/masscan.git|apt_install:masscan"
+ARSENAL[15]="RustScan|Network Tools|https://github.com/bee-san/RustScan.git|git_generic"
+ARSENAL[17]="amass|Scanning & Recon|https://github.com/owasp-amass/amass.git|apt_install:amass"
+ARSENAL[18]="httpx|Network Tools|https://github.com/projectdiscovery/httpx.git|git_go"
+ARSENAL[19]="subfinder|Network Tools|https://github.com/projectdiscovery/subfinder.git|git_go"
+ARSENAL[90]="naabu|Network Tools|https://github.com/projectdiscovery/naabu.git|git_go"
+ARSENAL[104]="dnsx|Network Tools|https://github.com/projectdiscovery/dnsx.git|git_go"
 
-# Core palette
-readonly C_RESET="\033[0m"
-readonly C_BLACK="\033[0;30m"
-readonly C_RED="\033[0;31m"
-readonly C_GREEN="\033[0;32m"
-readonly C_YELLOW="\033[0;33m"
-readonly C_BLUE="\033[0;34m"
-readonly C_MAGENTA="\033[0;35m"
-readonly C_CYAN="\033[0;36m"
-readonly C_WHITE="\033[0;37m"
-readonly C_GRAY="\033[0;90m"
+# XSS Tools
+ARSENAL[20]="dalfox|XSS Tools|https://github.com/hahwul/dalfox.git|git_go"
+ARSENAL[23]="XSpear|XSS Tools|https://github.com/hahwul/XSpear.git|git_generic"
+ARSENAL[26]="XSStrike|XSS Tools|https://github.com/s0md3v/XSStrike.git|git_python"
 
-# Bold variants
-readonly C_BOLD_RED="\033[1;31m"
-readonly C_BOLD_GREEN="\033[1;32m"
-readonly C_BOLD_YELLOW="\033[1;33m"
-readonly C_BOLD_CYAN="\033[1;36m"
-readonly C_BOLD_WHITE="\033[1;37m"
+# SQL Injection
+ARSENAL[28]="sqlmap|SQL Injection|https://github.com/sqlmapproject/sqlmap.git|apt_install:sqlmap"
+ARSENAL[29]="NoSQLMap|SQL Injection|https://github.com/codingo/NoSQLMap.git|git_python"
+ARSENAL[30]="DSSS|SQL Injection|https://github.com/stamparm/DSSS.git|git_python"
 
-# Background
-readonly BG_RED="\033[41m"
-readonly BG_BLACK="\033[40m"
+# WiFi Tools
+ARSENAL[35]="OneShot|WiFi Tools|https://github.com/kimocoder/OneShot.git|git_python"
+ARSENAL[36]="wifipumpkin3|WiFi Tools|https://github.com/P0cL4bs/wifipumpkin3.git|git_python"
+ARSENAL[37]="pixiewps|WiFi Tools|https://github.com/wiire-a/pixiewps.git|apt_install:pixiewps"
+ARSENAL[38]="bluepot|Bluetooth|https://github.com/andrewmichaelsmith/bluepot.git|git_generic"
+ARSENAL[140]="btlejack|Bluetooth|https://github.com/virtualabs/btlejack.git|pip_install:btlejack"
+ARSENAL[141]="bluesnarfer|Bluetooth|https://github.com/Sante51/bluesnarfer.git|git_generic"
+ARSENAL[39]="fluxion|WiFi Tools|https://github.com/FluxionNetwork/fluxion.git|git_generic"
+ARSENAL[40]="wifiphisher|WiFi Tools|https://github.com/wifiphisher/wifiphisher.git|git_python"
+ARSENAL[41]="wifite2|WiFi Tools|https://github.com/derv82/wifite2.git|git_python"
+ARSENAL[81]="aircrack-ng|WiFi Tools|https://github.com/aircrack-ng/aircrack-ng.git|apt_install:aircrack-ng"
+ARSENAL[82]="bettercap|WiFi Tools|https://github.com/bettercap/bettercap.git|apt_install:bettercap"
+ARSENAL[105]="hcxdumptool|WiFi Tools|https://github.com/ZerBea/hcxdumptool.git|apt_install:hcxdumptool"
+ARSENAL[106]="hcxtools|WiFi Tools|https://github.com/ZerBea/hcxtools.git|apt_install:hcxtools"
 
-# =============================================================================
-# GLOBAL STATE FLAGS
-# =============================================================================
+# Anonymity
+ARSENAL[43]="kali-anonsurf|Anonymity|https://github.com/Und3rf10w/kali-anonsurf.git|git_generic"
+ARSENAL[44]="multitor|Anonymity|https://github.com/trimstray/multitor.git|git_generic"
 
-SILENT_MODE=0
-REPAIR_MODE=0
-UPDATE_MODE=0
-INTERACTIVE=1
-ERRORS_OCCURRED=0
-OLLAMA_INSTALLED=0
-OLLAMA_RUNNING=0
-MODEL_PULLED=0
-PKG_UPDATED=0
-IS_ROOT=0
-DISTRO_SUPPORTED=0
-DISTRO_NAME=""
-DISTRO_VERSION=""
+# OSINT
+ARSENAL[45]="holehe|OSINT|https://github.com/megadose/holehe.git|pip_install:holehe"
+ARSENAL[46]="maigret|OSINT|https://github.com/soxoj/maigret.git|pip_install:maigret"
+ARSENAL[47]="trufflehog|OSINT|https://github.com/trufflesecurity/trufflehog.git|git_go"
+ARSENAL[91]="sherlock|OSINT|https://github.com/sherlock-project/sherlock.git|apt_install:sherlock"
+ARSENAL[107]="waybackurls|Web Scanning|https://github.com/tomnomnom/waybackurls.git|git_go"
+ARSENAL[108]="gau|Web Scanning|https://github.com/lc/gau.git|git_go"
+ARSENAL[109]="hakrawler|Web Scanning|https://github.com/hakluke/hakrawler.git|git_go"
 
-# =============================================================================
-# ARGUMENT PARSING
-# =============================================================================
+# Wordlist
+ARSENAL[50]="cupp|Wordlist|https://github.com/Mebus/cupp.git|git_python"
 
-parse_args() {
-    for arg in "$@"; do
-        case "${arg}" in
-            --silent)   SILENT_MODE=1 ; INTERACTIVE=0 ;;
-            --repair)   REPAIR_MODE=1 ;;
-            --update)   UPDATE_MODE=1 ;;
-            --help|-h)  show_usage ; exit 0 ;;
-            *)
-                echo "Unknown argument: ${arg}"
-                show_usage
-                exit 1
-                ;;
-        esac
+# Phishing
+ARSENAL[55]="SET|Phishing|https://github.com/trustedsec/social-engineer-toolkit.git|git_python"
+ARSENAL[56]="SocialFish|Phishing|https://github.com/UndeadSec/SocialFish.git|git_python"
+ARSENAL[57]="evilginx2|Phishing|https://github.com/kgretzky/evilginx2.git|git_go"
+
+# Web Tools
+ARSENAL[66]="takeover|Web Tools|https://github.com/edoardottt/takeover.git|git_go"
+ARSENAL[83]="commix|Web Scanning|https://github.com/commixproject/commix.git|apt_install:commix"
+ARSENAL[84]="wpscan|Web Scanning|https://github.com/wpscanteam/wpscan.git|apt_install:wpscan"
+ARSENAL[85]="ffuf|Web Scanning|https://github.com/ffuf/ffuf.git|apt_install:ffuf"
+ARSENAL[86]="gobuster|Web Scanning|https://github.com/OJ/gobuster.git|apt_install:gobuster"
+ARSENAL[87]="dirsearch|Web Scanning|https://github.com/maurosoria/dirsearch.git|apt_install:dirsearch"
+ARSENAL[88]="feroxbuster|Web Scanning|https://github.com/epi052/feroxbuster.git|apt_install:feroxbuster"
+ARSENAL[89]="katana|Web Scanning|https://github.com/projectdiscovery/katana.git|git_go"
+
+# Exploitation
+ARSENAL[72]="bulk_extractor|Exploitation|https://github.com/simsong/bulk_extractor.git|apt_install:bulk-extractor"
+ARSENAL[73]="TheFatRat|Exploitation|https://github.com/screetsec/TheFatRat.git|git_generic"
+ARSENAL[75]="msfpc|Exploitation|https://github.com/g0tmi1k/msfpc.git|git_generic"
+ARSENAL[76]="venom|Exploitation|https://github.com/r00t-3xp10it/venom.git|git_generic"
+
+# Active Directory
+ARSENAL[92]="netexec|Active Directory|https://github.com/Pennyw0rth/NetExec.git|apt_install:netexec"
+ARSENAL[93]="responder|Active Directory|https://github.com/lgandx/Responder.git|apt_install:responder"
+ARSENAL[94]="impacket|Active Directory|https://github.com/fortra/impacket.git|apt_install:python3-impacket"
+ARSENAL[95]="bloodhound|Active Directory|https://github.com/specterops/bloodhound.git|apt_install:bloodhound"
+ARSENAL[96]="certipy|Active Directory|https://github.com/ly4k/Certipy.git|pip_install:certipy-ad"
+
+# Password Cracking
+ARSENAL[97]="hashcat|Password Cracking|https://github.com/hashcat/hashcat.git|apt_install:hashcat"
+ARSENAL[98]="john|Password Cracking|https://github.com/openwall/john.git|apt_install:john"
+ARSENAL[99]="hydra|Password Cracking|https://github.com/vanhauser-thc/thc-hydra.git|apt_install:hydra"
+ARSENAL[110]="name-that-hash|Password Cracking|https://github.com/HashPals/Name-That-Hash.git|pip_install:name-that-hash"
+
+# C2 & Exploit Frameworks
+ARSENAL[100]="metasploit|C2 Frameworks|https://github.com/rapid7/metasploit-framework.git|apt_install:metasploit-framework"
+ARSENAL[101]="sliver|C2 Frameworks|https://github.com/bishopfox/sliver.git|git_go"
+ARSENAL[102]="havoc|C2 Frameworks|https://github.com/Havoc-Framework/Havoc.git|git_generic"
+ARSENAL[103]="empire|C2 Frameworks|https://github.com/BC-SECURITY/Empire.git|apt_install:powershell-empire"
+
+# Vulnerability Scanning
+ARSENAL[111]="nuclei|Vulnerability Scanning|https://github.com/projectdiscovery/nuclei.git|git_go"
+
+# Post Exploitation
+ARSENAL[112]="PEASS-ng|Post Exploitation|https://github.com/carlospolop/PEASS-ng.git|git_generic"
+ARSENAL[113]="pspy|Post Exploitation|https://github.com/DominicBreuker/pspy.git|git_go"
+
+# RTL-SDR & Radio Tools
+ARSENAL[114]="rtl-sdr|RTL-SDR Radio|https://github.com/osmocom/rtl-sdr.git|apt_install:rtl-sdr"
+ARSENAL[115]="dump1090|RTL-SDR Radio|https://github.com/antirez/dump1090.git|git_generic"
+ARSENAL[116]="rtl_433|RTL-SDR Radio|https://github.com/merbanan/rtl_433.git|apt_install:rtl-433"
+ARSENAL[117]="gqrx|RTL-SDR Radio|https://github.com/gqrx-sdr/gqrx.git|apt_install:gqrx"
+ARSENAL[118]="gnuradio|RTL-SDR Radio|https://github.com/gnuradio/gnuradio.git|apt_install:gnuradio"
+ARSENAL[119]="multimon-ng|RTL-SDR Radio|https://github.com/EliasOenal/multimon-ng.git|apt_install:multimon-ng"
+ARSENAL[120]="kalibrate-rtl|RTL-SDR Radio|https://github.com/steve-m/kalibrate-rtl.git|git_generic"
+
+# Radio & SDR
+ARSENAL[121]="urh|RTL-SDR Radio|https://github.com/jopohl/urh.git|pip_install:urh"
+ARSENAL[122]="eaphammer|WiFi Tools|https://github.com/s0lst1c3/eaphammer.git|git_python"
+
+# OSINT & Recon
+ARSENAL[123]="recon-ng|Scanning & Recon|https://github.com/lanmaster53/recon-ng.git|git_python"
+ARSENAL[125]="findomain|Scanning & Recon|https://github.com/findomain/findomain.git|git_generic"
+ARSENAL[126]="phoneinfoga|OSINT|https://github.com/sundowndev/phoneinfoga.git|git_go"
+ARSENAL[127]="GHunt|OSINT|https://github.com/mxrch/GHunt.git|git_python"
+ARSENAL[128]="BloodHound.py|Active Directory|https://github.com/Fox-IT/BloodHound.py.git|git_python"
+ARSENAL[129]="mitm6|Active Directory|https://github.com/dirkjanm/mitm6.git|pip_install:mitm6"
+
+# Web & Fuzzing
+ARSENAL[130]="jaeles|Web Scanning|https://github.com/jaeles-project/jaeles.git|git_go"
+ARSENAL[131]="arjun|Web Scanning|https://github.com/s0md3v/Arjun.git|pip_install:arjun"
+ARSENAL[132]="vulhub|Lab & Training|https://github.com/vulhub/vulhub.git|git_generic"
+
+# C2 & Phishing
+ARSENAL[133]="gophish|Phishing|https://github.com/gophish/gophish.git|git_go"
+ARSENAL[134]="zphisher|Phishing|https://github.com/htr-tech/zphisher.git|git_generic"
+
+# Wordlists & Resources
+ARSENAL[135]="SecLists|Wordlist|https://github.com/danielmiessler/SecLists.git|git_generic"
+
+# HTTP Benchmarking / Load Testing
+
+# Python pip3 tools (managed as arsenal entries)
+ARSENAL[137]="shodan|OSINT|https://github.com/achillean/shodan-python.git|pip_install:shodan"
+ARSENAL[138]="censys|OSINT|https://github.com/censys/censys-python.git|pip_install:censys"
+ARSENAL[139]="blackbird|OSINT|https://github.com/p1ngul1n0/blackbird.git|git_python"
+
+# ════════════════════════════════════════════════════════════════
+#  KNOWN ENTRYPOINTS MAP
+#  Maps arsenal tool directory name -> the actual script/binary to run.
+#  Used by install_tool (skip check) and _find_arsenal_entrypoint.
+#  Format: "script_relative_path|interpreter"  (interpreter: python3|bash|ruby|binary)
+# ════════════════════════════════════════════════════════════════
+declare -A TOOL_ENTRYPOINTS=(
+  [WebCheck]="webcheck.py|python3"
+  [DEATH_STAR]="main.py|python3"
+  [Dracnmap]="Dracnmap.py|python3"
+  [RED_HAWK]="rhawk.php|php"
+  [reconspider]="reconspider.py|python3"
+  [ReconDog]="dog.py|python3"
+  [Striker]="striker.py|python3"
+  [SecretFinder]="SecretFinder.py|python3"
+  [rang3r]="rang3r.py|python3"
+  [Breacher]="breacher.py|python3"
+  [theHarvester]="theHarvester.py|python3"
+  [spiderfoot]="sf.py|python3"
+  [xerosploit]="setup.py|python3"
+  [XSS-LOADER]="XSS-LOADER.py|python3"
+  [extended-xss-search]="extended_xss_search.py|python3"
+  [XSpear]="run.rb|ruby"
+  [XSSCon]="xsscon.py|python3"
+  [XanXSS]="xanxss.py|python3"
+  [XSStrike]="xsstrike.py|python3"
+  [RVuln]="rvuln.py|python3"
+  [NoSQLMap]="nosqlmap.py|python3"
+  [DSSS]="dsss.py|python3"
+  [explo]="explo|binary"
+  [Blisqy]="blisqy.py|python3"
+  [leviathan]="leviathan.py|python3"
+  [sqlscan]="sqlscan.sh|bash"
+  [OneShot]="oneshot.py|python3"
+  [wifipumpkin3]="wifipumpkin3|binary"
+  [fluxion]="fluxion.sh|bash"
+  [wifiphisher]="wifiphisher|binary"
+  [wifite2]="wifite.py|python3"
+  [fakeap]="fakeap.sh|bash"
+  [kali-anonsurf]="anonsurf|bash"
+  [multitor]="multitor.sh|bash"
+  [SMWYG]="SMWYG.py|python3"
+  [cupp]="cupp.py|python3"
+  [wlcreator]="wlcreator.py|python3"
+  [GoblinWordGenerator]="GoblinWordGenerator.py|python3"
+  [autophisher]="autophisher.py|python3"
+  [AdvPhishing]="main.py|python3"
+  [SET]="se-toolkit|binary"
+  [SocialFish]="SocialFish.py|python3"
+  [I-See-You]="I-See-You.py|python3"
+  [saycheese]="saycheese.sh|bash"
+  [ohmyqr]="ohmyqr.py|python3"
+  [Thanos]="thanos.sh|bash"
+  [QRLJacking]="server.py|python3"
+  [maskphish]="maskphish.sh|bash"
+  [BlackPhish]="blackphish.py|python3"
+  [checkURL]="checkURL.py|python3"
+  [Sublist3r]="sublist3r.py|python3"
+  [web2attack]="web2attack.py|python3"
+  [Vegile]="Vegile.sh|bash"
+  [HeraKeylogger]="HeraKeylogger.py|python3"
+  [TheFatRat]="fatrat|binary"
+  [Brutal]="brutal.py|python3"
+  [msfpc]="msfpc|bash"
+  [venom]="venom.sh|bash"
+  [spycam]="spycam.py|python3"
+  [Mob-Droid]="mob-droid.sh|bash"
+  [Enigma]="enigma.py|python3"
+  [PEASS-ng]="linPEAS/linpeas.sh|bash"
+)
+
+# ════════════════════════════════════════════════════════════════
+#  LOGGING
+# ════════════════════════════════════════════════════════════════
+log_ok()   { echo -e "${G}[OK]${NC} $*"; }
+log_info() { echo -e "${C}[~]${NC} $*"; }
+log_warn() { echo -e "${Y}[!]${NC} $*"; }
+log_err()  { echo -e "${R}[X]${NC} $*" >&2; }
+log_step() { echo -e "\n${B}${C}-- [ STEP $1 ] --${NC} $2"; }
+log_war()  { echo -e "${RB}[WAR]${NC} $*"; }
+
+# ════════════════════════════════════════════════════════════════
+#  PREFLIGHT
+# ════════════════════════════════════════════════════════════════
+preflight() {
+  [[ "$EUID" -ne 0 ]]   && log_err "Run as root: sudo bash install.sh" && exit 1
+  [[ -f "$LOCK_FILE" ]] && log_err "Install already running (remove $LOCK_FILE to reset)" && exit 1
+  command -v apt-get &>/dev/null || { log_err "apt-get required (Debian/Kali only)"; exit 1; }
+  touch "$LOCK_FILE"
+  trap 'rm -f "$LOCK_FILE"' EXIT INT TERM
+}
+
+# ════════════════════════════════════════════════════════════════
+#  INSTALLER BANNER
+# ════════════════════════════════════════════════════════════════
+show_installer_banner() {
+  clear
+  # ── Dragon prow ────────────────────────────────────────────────────────
+  echo -e "${RB}                              >>==>{  VIKING AI  }===>>        ${NC}"
+  echo -e "${D}${C}                                   |         |${NC}"
+  echo -e "${D}${C}                                  /|\\       /|\\${NC}"
+  # ── Sails: 4 red stripes, white fill, box-drawing ─────────────────────
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${RB}//////////////////|       |${RB}//////////////////|${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              |${W}     >>=====>>     ${RB}|       |${W}     >>=====>>     ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  # ── Mast base ──────────────────────────────────────────────────────────
+  echo -e "${D}${C}                                   |         |${NC}"
+  # ── Yard arm ───────────────────────────────────────────────────────────
+  echo -e "${Y}    o==========o==========${NC}${C}||${NC}${Y}==========o==========o${NC}"
+  # ── Shields ────────────────────────────────────────────────────────────
+  printf "  ${Y}(O) (O) (O) (O)${NC}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${Y}(O) (O) (O) (O)${NC}\n"
+  # ── Hull top ───────────────────────────────────────────────────────────
+  printf "         ${RB}___${C}____________________________________________________${RB}___${NC}\n"
+  printf "        ${RB}/${NC}${C} ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo ${RB}\\${NC}\n"
+  printf "       ${RB}/${NC}${C}______________________________________________________${RB}\\${NC}\n"
+  # ── Waterline ──────────────────────────────────────────────────────────
+  printf "  ${C}~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^${NC}\n"
+  printf "  ${D}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${NC}\n"
+  # ── Logo ───────────────────────────────────────────────────────────────
+  echo -e "${B}${Y}"
+  echo "  ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗  ██████╗      █████╗ ██╗"
+  echo "  ██║   ██║██║██║ ██╔╝██║████╗  ██║ ██╔════╝     ██╔══██╗██║"
+  echo "  ██║   ██║██║█████╔╝ ██║██╔██╗ ██║ ██║  ███╗    ███████║██║"
+  echo "  ╚██╗ ██╔╝██║██╔═██╗ ██║██║╚██╗██║ ██║   ██║    ██╔══██║██║"
+  echo "   ╚████╔╝ ██║██║  ██╗██║██║ ╚████║ ╚██████╔╝    ██║  ██║██║"
+  echo "    ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝  ╚═════╝     ╚═╝  ╚═╝╚═╝"
+  echo -e "${NC}"
+  printf "  ${G}Digital Longship Intelligence System  v${VIKING_VERSION}  |  @s.k.7.l.d${NC}\n"
+  echo -e "${D}  ═══════════════════════════════════════════════════════${NC}"
+  echo ""
+}
+
+
+# ════════════════════════════════════════════════════════════════
+#  WAR MODE BANNER
+# ════════════════════════════════════════════════════════════════
+show_war_banner() {
+  clear
+  echo -e "${RB}"
+  echo "  ██╗    ██╗ █████╗ ██████╗      ███╗   ███╗ ██████╗ ██████╗ ███████╗"
+  echo "  ██║    ██║██╔══██╗██╔══██╗     ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
+  echo "  ██║ █╗ ██║███████║██████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  "
+  echo "  ██║███╗██║██╔══██║██╔══██╗     ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
+  echo "  ╚███╔███╔╝██║  ██║██║  ██║     ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
+  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
+  echo ""
+  echo "  ██╗  ██╗███████╗██╗     ██╗          ██╗███████╗"
+  echo "  ██║  ██║██╔════╝██║     ██║         ██╔╝██╔════╝"
+  echo "  ███████║█████╗  ██║     ██║        ██╔╝ ███████╗"
+  echo "  ██╔══██║██╔══╝  ██║     ██║       ██╔╝  ╚════██║"
+  echo "  ██║  ██║███████╗███████╗███████╗ ██╔╝   ███████║"
+  echo "  ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚═╝    ╚══════╝"
+  echo -e "${NC}"
+  echo -e "${RB}  ══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${RB}  [!]  DEPLOYING FULL WEAPON ARSENAL - ALL TOOLS INCOMING  [!]  ${NC}"
+  echo -e "${RB}  ══════════════════════════════════════════════════════════════${NC}"
+  echo ""
+  sleep 1
+}
+
+# ════════════════════════════════════════════════════════════════
+#  DEPENDENCIES
+# ════════════════════════════════════════════════════════════════
+# ── Tool dependency map: tool -> what it needs before running ──────────────
+# Used by the launch layer to auto-install prerequisites.
+# Format: "apt:pkg1,pkg2|pip:pkg1,pkg2|go:pkg@latest"
+declare -A TOOL_DEPS=(
+  [theHarvester]="pip:dnspython,requests,censys,shodan"
+  [recon-ng]="pip:dnspython,requests"
+  [GHunt]="pip:requests,colorama,prompt_toolkit"
+  [BloodHound.py]="pip:dnspython,impacket"
+  [mitm6]="pip:impacket,dnspython"
+  [eaphammer]="apt:hostapd,libssl-dev|pip:requests"
+  [subfinder]="apt:libpcap-dev"
+  [amass]="apt:libpcap-dev"
+  [naabu]="apt:libpcap-dev"
+  [wifiphisher]="apt:hostapd,dnsmasq"
+  [bettercap]="apt:libpcap-dev,libnetfilter-queue-dev"
+  [spiderfoot]="pip:dnspython,requests,pycryptodome"
+  [arjun]="pip:requests,colorama"
+  [censys]="pip:requests"
+  [shodan]="pip:requests"
+)
+
+install_dependencies() {
+  log_step "1" "Installing system dependencies..."
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    tmux curl wget git python3 python3-pip python3-venv \
+    nmap tshark whois nikto build-essential golang-go \
+    ruby ruby-dev libpcap-dev libssl-dev php jq \
+    dnsrecon masscan rtl-sdr librtlsdr-dev \
+    hcxtools hcxdumptool airgraph-ng \
+    hashcat medusa hydra aircrack-ng \
+    gobuster ffuf sqlmap commix nikto wpscan \
+    amass subfinder whois dnsrecon \
+    gqrx-sdr 2>/dev/null
+  log_ok "System packages ready"
+
+  # ── pip3 core libraries (non-interactive) ─────────────────────
+  log_info "Installing Python security libraries..."
+  pip3 install -q --break-system-packages \
+    dnspython censys shodan impacket colorama \
+    prompt_toolkit requests pycryptodome arjun \
+    mitm6 holehe maigret 2>/dev/null || true
+  log_ok "Python libraries ready"
+
+  # ── Go tools (installed to ~/go/bin, added to PATH) ───────────
+  if command -v go &>/dev/null; then
+    log_info "Installing Go security tools..."
+    export GOPATH="$HOME/go"
+    export PATH="$PATH:$GOPATH/bin"
+    local go_tools=(
+      "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest"
+      "github.com/projectdiscovery/httpx/cmd/httpx@latest"
+      "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"
+      "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+      "github.com/projectdiscovery/dnsx/cmd/dnsx@latest"
+      "github.com/ffuf/ffuf/v2@latest"
+      "github.com/lc/gau/v2/cmd/gau@latest"
+      "github.com/tomnomnom/assetfinder@latest"
+      "github.com/sundowndev/phoneinfoga/v2@latest"
+      "github.com/jaeles-project/jaeles@latest"
+      "github.com/codesenberg/bombardier@latest"
+    )
+    for pkg in "${go_tools[@]}"; do
+      go install -v "$pkg" 2>/dev/null || true
     done
+    # Make sure ~/go/bin is in PATH permanently
+    local bashrc="$HOME/.bashrc"
+    grep -q 'GOPATH/bin' "$bashrc" 2>/dev/null || \
+      echo 'export PATH="$PATH:$HOME/go/bin"' >> "$bashrc"
+    log_ok "Go tools ready"
+  else
+    log_warn "Go not found - skipping Go tool installs"
+  fi
+
+  log_ok "All dependencies ready"
 }
 
-show_usage() {
-    echo ""
-    echo "  Viking-AI Installer v${VIKING_VERSION}"
-    echo ""
-    echo "  Usage: sudo bash install.sh [OPTIONS]"
-    echo ""
-    echo "  Options:"
-    echo "    (none)     Full interactive installation"
-    echo "    --repair   Repair broken installation"
-    echo "    --update   Update existing installation"
-    echo "    --silent   Non-interactive (use defaults)"
-    echo "    --help     Show this message"
-    echo ""
-}
+# ── install_tool_deps: auto-install prereqs for a given tool ─────────────
+install_tool_deps() {
+  local tool="$1"
+  local dep_str="${TOOL_DEPS[$tool]:-}"
+  [[ -z "$dep_str" ]] && return 0
 
-# =============================================================================
-# LOGGING SYSTEM
-# =============================================================================
-
-# Ensure log directory exists before any logging
-_preinit_logs() {
-    mkdir -p "/tmp/viking_preinit_logs" 2>/dev/null || true
-    export PRE_LOG="/tmp/viking_preinit_logs/install.log"
-    touch "${PRE_LOG}" 2>/dev/null || true
-}
-
-log_raw() {
-    local message="${1:-}"
-    local timestamp
-    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-
-    # Strip ANSI codes before writing to log
-    local clean_msg
-    clean_msg=$(echo -e "${message}" | sed 's/\x1b\[[0-9;]*m//g' 2>/dev/null || echo "${message}")
-
-    if [[ -f "${LOG_FILE}" ]]; then
-        echo "[${timestamp}] ${clean_msg}" >> "${LOG_FILE}" 2>/dev/null || true
-    elif [[ -f "${PRE_LOG:-/tmp/viking_preinit_logs/install.log}" ]]; then
-        echo "[${timestamp}] ${clean_msg}" >> "${PRE_LOG}" 2>/dev/null || true
-    fi
-}
-
-log_error() {
-    local message="${1:-}"
-    local timestamp
-    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    local clean_msg
-    clean_msg=$(echo -e "${message}" | sed 's/\x1b\[[0-9;]*m//g' 2>/dev/null || echo "${message}")
-
-    if [[ -f "${ERROR_LOG}" ]]; then
-        echo "[${timestamp}] ERROR: ${clean_msg}" >> "${ERROR_LOG}" 2>/dev/null || true
-    fi
-    echo "[${timestamp}] ERROR: ${clean_msg}" >> "${PRE_LOG:-/dev/null}" 2>/dev/null || true
-}
-
-# =============================================================================
-# TERMINAL OUTPUT HELPERS
-# =============================================================================
-
-print_color() {
-    local color="${1}"
-    local message="${2}"
-    if [[ "${SILENT_MODE}" -eq 0 ]]; then
-        echo -e "${color}${message}${C_RESET}"
-    fi
-    log_raw "${message}"
-}
-
-print_info()    { print_color "${C_GREEN}"       "  [•] ${1}"; }
-print_ok()      { print_color "${C_BOLD_GREEN}"  "  [✓] ${1}"; }
-print_warn()    { print_color "${C_YELLOW}"      "  [!] ${1}"; }
-print_error()   {
-    print_color "${C_BOLD_RED}"   "  [✗] ${1}"
-    log_error "${1}"
-    ERRORS_OCCURRED=1
-}
-print_step()    { print_color "${C_BOLD_CYAN}"  "\n  ══ ${1} ══"; }
-print_gray()    { print_color "${C_GRAY}"       "      ${1}"; }
-print_war()     { print_color "${BG_RED}${C_BOLD_WHITE}" "  ⚔  ${1}  ⚔"; }
-
-nl()  { [[ "${SILENT_MODE}" -eq 0 ]] && echo ""; }
-sep() {
-    if [[ "${SILENT_MODE}" -eq 0 ]]; then
-        echo -e "${C_GRAY}  ─────────────────────────────────────────────────────────────${C_RESET}"
-    fi
-}
-
-# =============================================================================
-# SPINNER ANIMATION
-# =============================================================================
-
-SPINNER_PID=""
-
-spinner_start() {
-    local message="${1:-Working...}"
-    if [[ "${SILENT_MODE}" -eq 1 ]]; then
-        log_raw "SPINNER: ${message}"
-        return
-    fi
-
-    local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-    local i=0
-
-    while true; do
-        printf "\r  ${C_GREEN}${frames[$i]}${C_RESET}  ${C_GRAY}%s${C_RESET}   " "${message}"
-        i=$(( (i + 1) % 10 ))
-        sleep 0.1
-    done &
-    SPINNER_PID=$!
-    disown "${SPINNER_PID}" 2>/dev/null || true
-}
-
-spinner_stop() {
-    local status="${1:-ok}"
-    local message="${2:-}"
-
-    if [[ -n "${SPINNER_PID}" ]]; then
-        kill "${SPINNER_PID}" 2>/dev/null || true
-        wait "${SPINNER_PID}" 2>/dev/null || true
-        SPINNER_PID=""
-    fi
-
-    if [[ "${SILENT_MODE}" -eq 0 ]]; then
-        printf "\r\033[2K"
-    fi
-
-    if [[ -n "${message}" ]]; then
-        case "${status}" in
-            ok)    print_ok "${message}" ;;
-            warn)  print_warn "${message}" ;;
-            error) print_error "${message}" ;;
-            *)     print_info "${message}" ;;
-        esac
-    fi
-}
-
-# =============================================================================
-# PROGRESS BAR
-# =============================================================================
-
-progress_bar() {
-    local current="${1}"
-    local total="${2}"
-    local label="${3:-Progress}"
-
-    if [[ "${SILENT_MODE}" -eq 1 ]]; then return; fi
-
-    local width=40
-    local pct=$(( (current * 100) / total ))
-    local filled=$(( (current * width) / total ))
-    local empty=$(( width - filled ))
-
-    local bar=""
-    local i
-    for ((i=0; i<filled; i++)); do bar+="█"; done
-    for ((i=0; i<empty; i++));  do bar+="░"; done
-
-    printf "\r  ${C_GREEN}[%s]${C_RESET} ${C_BOLD_GREEN}%3d%%${C_RESET}  ${C_GRAY}%s${C_RESET}   " \
-        "${bar}" "${pct}" "${label}"
-
-    if [[ "${current}" -eq "${total}" ]]; then
-        printf "\n"
-    fi
-}
-
-# =============================================================================
-# CONFIRMATION PROMPT
-# =============================================================================
-
-confirm() {
-    local message="${1}"
-    local default="${2:-y}"
-
-    if [[ "${SILENT_MODE}" -eq 1 || "${INTERACTIVE}" -eq 0 ]]; then
-        log_raw "AUTO-CONFIRM: ${message} [default: ${default}]"
-        [[ "${default}" == "y" ]] && return 0 || return 1
-    fi
-
-    local prompt
-    if [[ "${default}" == "y" ]]; then
-        prompt="[Y/n]"
-    else
-        prompt="[y/N]"
-    fi
-
-    echo -e "\n  ${C_BOLD_YELLOW}?  ${message} ${C_GRAY}${prompt}${C_RESET} "
-    read -r -p "  > " response
-
-    response="${response,,}"
-    response="${response:-${default}}"
-
-    [[ "${response}" == "y" || "${response}" == "yes" ]]
-}
-
-# =============================================================================
-# ASCII BANNERS
-# =============================================================================
-
-print_vik_banner() {
-    if [[ "${SILENT_MODE}" -eq 1 ]]; then return; fi
-
-    echo -e "${C_GREEN}"
-    cat << 'VIKBANNER'
-
-    ) (                               |
-   (   )                            \|/
-    ) (       ___________________---*---___________________
-  _______    /                    /|\                     \
- / ◈   ◈ \  /      V  I  K  I  N  G  -  A  I              \
-|  -----  |/    ⚔    Cyber Viking AI  ::  v1.0.0    ⚔      \
-|  \___/  /_________________________________________________ \
-|         |  ><   ><   ><   ><   ><   ><   ><   ><   ><    |
- \_______/ \________________________________________________/
-  |  | |  |  ~~~~|_________________________________________|~~~~
-  |  |||  | ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~
- /|  |||  |\ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-/ |__|||__| \
-\_____|_____/      ⚔  VIK  ::  CYBER VIKING AI  ⚔
-      |
-   ===⚔===
-
-VIKBANNER
-    echo -e "${C_RESET}"
-}
-
-print_installer_header() {
-    if [[ "${SILENT_MODE}" -eq 1 ]]; then return; fi
-
-    clear
-    echo ""
-    echo -e "${C_BOLD_GREEN}"
-    cat << 'HEADER'
- ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗ ██████╗      █████╗ ██╗
- ██║   ██║██║██║ ██╔╝██║████╗  ██║██╔════╝     ██╔══██╗██║
- ██║   ██║██║█████╔╝ ██║██╔██╗ ██║██║  ███╗    ███████║██║
- ╚██╗ ██╔╝██║██╔═██╗ ██║██║╚██╗██║██║   ██║    ██╔══██║██║
-  ╚████╔╝ ██║██║  ██╗██║██║ ╚████║╚██████╔╝    ██║  ██║██║
-   ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═╝  ╚═╝╚═╝
-HEADER
-    echo -e "${C_RESET}"
-
-    # Viking ship centred under the title
-    echo -e "${C_GREEN}"
-    cat << 'SHIPBANNER'
-                              |
-                             \|/
-                           ---*---
-                            /|\
-                           / | \
-         _________________/  |  \_________________
-        /                    |                    \
-       /        V  I  K  I  N  G  -  A  I         \
-      /    ⚔    Cyber Viking AI  ::  v1.0.0   ⚔   \
-     /_______________________________________________\
-    |  ><   ><   ><   ><   ><   ><   ><   ><   ><   |
-    |  ><   ><   ><   ><   ><   ><   ><   ><   ><   |
-     \_______________________________________________/
-   ~~~~~~~~|_______________________________________|~~~~~~~~
-  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~
-SHIPBANNER
-    echo -e "${C_RESET}"
-
-    echo -e "${C_GRAY}  ════════════════════════════════════════════════════════════${C_RESET}"
-    echo -e "${C_BOLD_GREEN}  INSTALLER v${VIKING_VERSION} ${C_GRAY}::${C_RESET} ${C_CYAN}CODENAME: ${VIKING_CODENAME}${C_RESET}"
-    echo -e "${C_GRAY}  ════════════════════════════════════════════════════════════${C_RESET}"
-    echo ""
-}
-
-# =============================================================================
-# ROOT CHECK
-# =============================================================================
-
-check_root() {
-    print_step "PRIVILEGES CHECK"
-
-    if [[ "${EUID}" -ne 0 ]]; then
-        print_error "Viking-AI must be installed as root."
-        print_gray  "Run: sudo bash install.sh"
-        exit 1
-    fi
-
-    IS_ROOT=1
-    print_ok "Running as root"
-}
-
-# =============================================================================
-# DISTRIBUTION DETECTION
-# =============================================================================
-
-detect_distro() {
-    print_step "SYSTEM DETECTION"
-
-    if [[ ! -f /etc/os-release ]]; then
-        print_error "/etc/os-release not found. Cannot detect distribution."
-        exit 1
-    fi
-
-    # shellcheck source=/dev/null
-    source /etc/os-release
-    DISTRO_NAME="${NAME:-Unknown}"
-    DISTRO_VERSION="${VERSION_ID:-Unknown}"
-
-    print_info "Detected OS: ${DISTRO_NAME} ${DISTRO_VERSION}"
-
-    local supported_ids=("debian" "ubuntu" "kali" "parrot" "linuxmint" "pop" "elementary" "raspbian" "mx")
-    local id_lower
-    id_lower=$(echo "${ID:-}" | tr '[:upper:]' '[:lower:]')
-    local id_like_lower
-    id_like_lower=$(echo "${ID_LIKE:-}" | tr '[:upper:]' '[:lower:]')
-
-    local is_supported=0
-    for sid in "${supported_ids[@]}"; do
-        if [[ "${id_lower}" == *"${sid}"* || "${id_like_lower}" == *"${sid}"* ]]; then
-            is_supported=1
-            break
-        fi
-    done
-
-    if [[ "${is_supported}" -eq 1 ]]; then
-        DISTRO_SUPPORTED=1
-        print_ok "Distribution supported: ${DISTRO_NAME}"
-    else
-        DISTRO_SUPPORTED=0
-        print_warn "Distribution '${DISTRO_NAME}' is NOT officially supported."
-        if ! confirm "Continue installation on unsupported distro?" "n"; then
-            print_info "Installation aborted."
-            exit 0
-        fi
-    fi
-
-    # Architecture
-    local arch
-    arch=$(uname -m)
-    print_info "Architecture: ${arch}"
-    case "${arch}" in
-        x86_64|amd64)  print_ok "x86_64 — fully supported" ;;
-        aarch64|arm64) print_warn "ARM64 — limited support" ;;
-        *)             print_warn "Architecture '${arch}' — experimental" ;;
+  IFS='|' read -ra dep_groups <<< "$dep_str"
+  for group in "${dep_groups[@]}"; do
+    local type="${group%%:*}"
+    local pkgs="${group#*:}"
+    case "$type" in
+      apt)
+        IFS=',' read -ra apt_list <<< "$pkgs"
+        for p in "${apt_list[@]}"; do
+          command -v "$p" &>/dev/null || \
+            apt-get install -y -qq "$p" 2>/dev/null || true
+        done ;;
+      pip)
+        IFS=',' read -ra pip_list <<< "$pkgs"
+        pip3 install -q --break-system-packages "${pip_list[@]}" 2>/dev/null || true ;;
+      go)
+        command -v go &>/dev/null && \
+          go install -v "$pkgs" 2>/dev/null || true ;;
     esac
-
-    # Kernel
-    print_info "Kernel: $(uname -r)"
-
-    # RAM check
-    local ram_kb
-    ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}' 2>/dev/null || echo "0")
-    local ram_gb=$(( ram_kb / 1024 / 1024 ))
-    print_info "RAM: ~${ram_gb} GB detected"
-
-    if [[ "${ram_kb}" -lt 1048576 ]]; then
-        print_error "Minimum 1GB RAM required. Detected: ${ram_kb} KB"
-        exit 1
-    elif [[ "${ram_kb}" -lt 2097152 ]]; then
-        print_warn "Low RAM (<2GB). Using lightweight model: ${DEFAULT_MODEL}"
-    else
-        print_ok "RAM sufficient for AI operations"
-    fi
-
-    # Disk check — require at least 5GB free
-    local disk_avail_kb
-    disk_avail_kb=$(df /opt 2>/dev/null | awk 'NR==2 {print $4}' || echo "0")
-    local disk_avail_gb=$(( disk_avail_kb / 1024 / 1024 ))
-    print_info "Free disk (/opt): ~${disk_avail_gb} GB"
-
-    if [[ "${disk_avail_kb}" -lt 5242880 ]]; then
-        print_warn "Low disk space (<5GB). Arsenal full install may fail."
-    else
-        print_ok "Disk space sufficient"
-    fi
+  done
 }
 
-# =============================================================================
-# DEPENDENCY CHECKS
-# =============================================================================
+# ════════════════════════════════════════════════════════════════
+#  OLLAMA
+# ════════════════════════════════════════════════════════════════
+install_ollama() {
+  log_step "2" "Checking Ollama..."
+  if command -v ollama &>/dev/null; then
+    log_ok "Ollama already installed"
+  else
+    log_info "Installing Ollama..."
+    curl -fsSL https://ollama.com/install.sh | sh || {
+      log_err "Ollama install failed - check internet connection"
+      exit 1
+    }
+    log_ok "Ollama installed"
+  fi
+  systemctl enable ollama &>/dev/null || true
+  systemctl start  ollama &>/dev/null || true
+  local tries=5
+  until curl -sf http://localhost:11434/ &>/dev/null || (( --tries == 0 )); do
+    sleep 3
+  done
+  log_ok "Ollama service running"
+}
 
-declare -a REQUIRED_CMDS=(
-    "curl"
-    "wget"
-    "git"
-    "jq"
-    "python3"
-    "pip3"
-    "tar"
-    "unzip"
-    "tmux"
-    "screen"
+pull_model() {
+  local model="${1:-$DEFAULT_MODEL}"
+  log_step "3" "Checking model: $model"
+  if ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$model"; then
+    log_ok "Already present: $model"
+  else
+    log_info "Pulling $model..."
+    ollama pull "$model" || log_warn "Pull failed - will retry on first use"
+    log_ok "Model ready: $model"
+  fi
+}
+
+# ════════════════════════════════════════════════════════════════
+#  TOOL INSTALLER
+# ════════════════════════════════════════════════════════════════
+
+# Check if an arsenal tool is already usable (binary in PATH or cloned dir exists)
+_tool_is_installed() {
+  local name="$1" dest="$2"
+  # Check common binary names in PATH
+  command -v "$name" &>/dev/null && return 0
+  command -v "${name,,}" &>/dev/null && return 0
+  # Check if arsenal dir has the tool cloned and entrypoint exists
+  if [[ -d "$dest" ]]; then
+    local ep="${TOOL_ENTRYPOINTS[$name]:-}"
+    if [[ -n "$ep" ]]; then
+      local script="${ep%%|*}"
+      [[ -f "$dest/$script" ]] && return 0
+    fi
+    # Any executable file found
+    find "$dest" -maxdepth 2 -type f \( -name "*.py" -o -name "*.sh" -o -executable \) \
+      2>/dev/null | grep -q . && return 0
+  fi
+  return 1
+}
+
+_post_install() {
+  local dest="$1" type="$2"
+  case "$type" in
+    git_python)
+      [[ -f "$dest/requirements.txt" ]] &&
+        pip3 install -q -r "$dest/requirements.txt" \
+          --break-system-packages 2>/dev/null || true ;;
+    git_go)
+      [[ -f "$dest/go.mod" ]] &&
+        (cd "$dest" && go build ./... 2>/dev/null) || true ;;
+    git_generic)
+      if   [[ -f "$dest/Makefile"   ]]; then (cd "$dest" && make -s 2>/dev/null)        || true
+      elif [[ -f "$dest/setup.sh"   ]]; then (cd "$dest" && bash setup.sh 2>/dev/null)   || true
+      elif [[ -f "$dest/install.sh" ]]; then (cd "$dest" && bash install.sh 2>/dev/null) || true
+      fi ;;
+  esac
+}
+
+_git_clone_fallback() {
+  local name="$1" url="$2" dest="$3"
+  log_warn "Falling back to git clone for: $name"
+  if [[ -d "$dest/.git" ]]; then
+    git -C "$dest" pull -q 2>/dev/null || true
+  else
+    git clone --depth=1 -q "$url" "$dest" 2>/dev/null || {
+      log_err "Git clone also failed: $name"
+      return 1
+    }
+  fi
+  _post_install "$dest" "git_generic"
+  [[ -f "$dest/requirements.txt" ]] &&
+    pip3 install -q -r "$dest/requirements.txt" --break-system-packages 2>/dev/null || true
+  log_ok "$name installed via git"
+}
+
+install_tool() {
+  local raw_key="$1"
+  local key
+  key=$(printf '%d' "$((10#${raw_key}))" 2>/dev/null) || key="$raw_key"
+  local entry="${ARSENAL[$key]:-}"
+  [[ -z "$entry" ]] && { log_err "Tool #$key not in arsenal"; return 1; }
+
+  IFS='|' read -r name category url itype <<< "$entry"
+  local dest="$ARSENAL_DIR/$name"
+
+  printf "  ${C}[%03d]${NC} %-30s ${D}%s${NC}\n" "$key" "$name" "$category"
+
+  # apt_install: check system first, then apt, then git fallback
+  if [[ "$itype" == apt_install:* ]]; then
+    local pkg="${itype#apt_install:}"
+    if _tool_is_installed "$name" "$dest"; then
+      log_ok "$name already available"
+      return 0
+    fi
+    if apt-get install -y -qq "$pkg" 2>/dev/null; then
+      log_ok "$name installed via apt"
+    else
+      _git_clone_fallback "$name" "$url" "$dest"
+    fi
+    return 0
+  fi
+
+  # pip_install: check system first, then pip, then git fallback
+  if [[ "$itype" == pip_install:* ]]; then
+    local ppkg="${itype#pip_install:}"
+    if _tool_is_installed "$name" "$dest"; then
+      log_ok "$name already available"
+      return 0
+    fi
+    if pip3 install -q "$ppkg" --break-system-packages 2>/dev/null; then
+      log_ok "$name installed via pip"
+    else
+      _git_clone_fallback "$name" "$url" "$dest"
+    fi
+    return 0
+  fi
+
+  # git-based tools
+  if _tool_is_installed "$name" "$dest"; then
+    log_ok "$name already available (skipping clone)"
+    return 0
+  fi
+
+  if [[ -d "$dest/.git" ]]; then
+    git -C "$dest" pull -q 2>/dev/null || true
+  else
+    git clone --depth=1 -q "$url" "$dest" 2>/dev/null || {
+      log_err "Clone failed: $name"
+      return 1
+    }
+  fi
+  # Install any prerequisites this tool needs
+  install_tool_deps "$name"
+  _post_install "$dest" "$itype"
+  log_ok "$name installed"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  PROGRESS BAR
+# ════════════════════════════════════════════════════════════════
+_progress_bar() {
+  local cur="$1" tot="$2" w=46
+  (( tot == 0 )) && return
+  local f=$(( cur * w / tot ))
+  local e=$(( w - f ))
+  local bf="" be=""
+  (( f > 0 )) && bf=$(printf '#%.0s' $(seq 1 "$f"))
+  (( e > 0 )) && be=$(printf '.%.0s' $(seq 1 "$e"))
+  printf "\r  ${RB}[${NC}${RB}%s${NC}${D}%s${NC}${RB}]${NC} %d/%d" \
+    "$bf" "$be" "$cur" "$tot"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  WAR MODE
+# ════════════════════════════════════════════════════════════════
+war_mode_install() {
+  show_war_banner
+  mkdir -p "$ARSENAL_DIR" "$LOG_DIR"
+
+  local keys=()
+  while IFS= read -r k; do keys+=("$k"); done < <(
+    printf '%s\n' "${!ARSENAL[@]}" | sort -n
+  )
+
+  local total=${#keys[@]} count=0
+  local pids=() running_keys=() failed=()
+
+  for key in "${keys[@]}"; do
+    (( count++ ))
+    IFS='|' read -r name _ _ _ <<< "${ARSENAL[$key]}"
+    log_war "[$count/$total] Deploying: $name"
+    install_tool "$key" >> "$LOG_DIR/war_$(printf '%03d' "$count").log" 2>&1 &
+    pids+=($!)
+    running_keys+=("$key")
+
+    if (( ${#pids[@]} >= WAR_JOBS )); then
+      if ! wait "${pids[0]}" 2>/dev/null; then
+        failed+=("${running_keys[0]}")
+      fi
+      pids=("${pids[@]:1}")
+      running_keys=("${running_keys[@]:1}")
+    fi
+    _progress_bar "$count" "$total"
+  done
+
+  # Drain remaining
+  local i=0
+  for pid in "${pids[@]}"; do
+    if ! wait "$pid" 2>/dev/null; then
+      failed+=("${running_keys[$i]:-?}")
+    fi
+    (( i++ )) || true
+  done
+  echo ""
+
+  echo -e "\n${RB}  ══════════════════════════════════════════════${NC}"
+  echo -e "${RB}  WAR COMPLETE - $count / $total WEAPONS DEPLOYED${NC}"
+  echo -e "${RB}  ══════════════════════════════════════════════${NC}"
+  if (( ${#failed[@]} > 0 )); then
+    echo -e "${Y}  Failed keys: ${failed[*]}"
+    echo -e "  Logs -> $LOG_DIR${NC}"
+  fi
+  echo ""
+}
+
+# ════════════════════════════════════════════════════════════════
+#  ARSENAL TABLE
+# ════════════════════════════════════════════════════════════════
+display_arsenal_table() {
+  local current_cat=""
+  echo ""
+  echo -e "${B}${Y}  [*]  WEAPONS ARSENAL  [*]${NC}"
+  echo -e "  ══════════════════════════════════════════════════════"
+  while IFS= read -r key; do
+    IFS='|' read -r name category _ _ <<< "${ARSENAL[$key]}"
+    if [[ "$category" != "$current_cat" ]]; then
+      current_cat="$category"
+      echo -e "\n${B}${M}    -- $category --${NC}"
+    fi
+    local tag=""
+    if _tool_is_installed "$name" "$ARSENAL_DIR/$name"; then
+      tag="${G}[installed]${NC}"
+    fi
+    printf "  ${C}[%03d]${NC}  %-32s%b\n" "$key" "$name" "$tag"
+  done < <(printf '%s\n' "${!ARSENAL[@]}" | sort -n)
+  echo -e "\n  ══════════════════════════════════════════════════════\n"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  GENERATE REGISTRY FILE
+# ════════════════════════════════════════════════════════════════
+write_arsenal_registry() {
+  log_step "4" "Generating arsenal registry..."
+  {
+    echo "#!/bin/bash"
+    echo "# Auto-generated by install.sh - edit ARSENAL in install.sh only"
+    echo "declare -A TOOL_REGISTRY"
+    for key in $(printf '%s\n' "${!ARSENAL[@]}" | sort -n); do
+      printf 'TOOL_REGISTRY[%d]="%s"\n' "$key" "${ARSENAL[$key]}"
+    done
+    echo ""
+    echo "declare -A TOOL_ENTRYPOINTS"
+    for name in "${!TOOL_ENTRYPOINTS[@]}"; do
+      printf 'TOOL_ENTRYPOINTS[%s]="%s"\n' "$name" "${TOOL_ENTRYPOINTS[$name]}"
+    done
+  } > "$REGISTRY_FILE"
+  chmod +x "$REGISTRY_FILE"
+  log_ok "Registry -> $REGISTRY_FILE"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  GENERATE ARSENAL MENU SCRIPT
+# ════════════════════════════════════════════════════════════════
+write_arsenal_menu() {
+  log_step "4b" "Writing arsenal menu..."
+  cat > "$ARSENAL_MENU" << 'MENU'
+#!/bin/bash
+# VIKING Arsenal Menu
+
+VIKING_DIR="/opt/viking"
+ARSENAL_DIR="$VIKING_DIR/arsenal"
+REGISTRY_FILE="$VIKING_DIR/arsenal_registry.sh"
+LOG_DIR="$VIKING_DIR/logs"
+WAR_JOBS=4
+
+R='\033[0;31m'; RB='\033[1;31m'; G='\033[0;32m'; C='\033[0;36m'
+Y='\033[1;33m'; M='\033[0;35m'; B='\033[1m'; D='\033[2m'; NC='\033[0m'
+
+source "$REGISTRY_FILE" || { echo "Registry missing - run install.sh"; exit 1; }
+
+log_ok()  { echo -e "${G}[OK]${NC} $*"; }
+log_err() { echo -e "${R}[X]${NC} $*" >&2; }
+log_war() { echo -e "${RB}[WAR]${NC} $*"; }
+
+_tool_is_installed() {
+  local name="$1" dest="$2"
+  command -v "$name" &>/dev/null && return 0
+  command -v "${name,,}" &>/dev/null && return 0
+  if [[ -d "$dest" ]]; then
+    local ep="${TOOL_ENTRYPOINTS[$name]:-}"
+    if [[ -n "$ep" ]]; then
+      local script="${ep%%|*}"
+      [[ -f "$dest/$script" ]] && return 0
+    fi
+    find "$dest" -maxdepth 2 -type f \( -name "*.py" -o -name "*.sh" -o -executable \) \
+      2>/dev/null | grep -q . && return 0
+  fi
+  return 1
+}
+
+_post_install() {
+  local dest="$1" type="$2"
+  case "$type" in
+    git_python)
+      [[ -f "$dest/requirements.txt" ]] &&
+        pip3 install -q -r "$dest/requirements.txt" \
+          --break-system-packages 2>/dev/null || true ;;
+    git_go)
+      [[ -f "$dest/go.mod" ]] && (cd "$dest" && go build ./... 2>/dev/null) || true ;;
+    git_generic)
+      if   [[ -f "$dest/Makefile"   ]]; then (cd "$dest" && make -s 2>/dev/null)        || true
+      elif [[ -f "$dest/setup.sh"   ]]; then (cd "$dest" && bash setup.sh 2>/dev/null)   || true
+      elif [[ -f "$dest/install.sh" ]]; then (cd "$dest" && bash install.sh 2>/dev/null) || true
+      fi ;;
+  esac
+}
+
+_git_clone_fallback() {
+  local name="$1" url="$2" dest="$3"
+  echo -e "${Y}[!]${NC} Falling back to git clone: $name"
+  if [[ -d "$dest/.git" ]]; then
+    git -C "$dest" pull -q 2>/dev/null || true
+  else
+    git clone --depth=1 -q "$url" "$dest" 2>/dev/null || {
+      log_err "Git clone failed: $name"; return 1
+    }
+  fi
+  _post_install "$dest" "git_generic"
+  [[ -f "$dest/requirements.txt" ]] &&
+    pip3 install -q -r "$dest/requirements.txt" --break-system-packages 2>/dev/null || true
+  log_ok "$name installed via git"
+}
+
+install_tool() {
+  local key
+  key=$(printf '%d' "$((10#${1}))" 2>/dev/null) || key="$1"
+  local entry="${TOOL_REGISTRY[$key]:-}"
+  [[ -z "$entry" ]] && { log_err "Tool #$key not found"; return 1; }
+
+  IFS='|' read -r name category url itype <<< "$entry"
+  local dest="$ARSENAL_DIR/$name"
+  printf "  ${C}[%03d]${NC} %-30s ${D}%s${NC}\n" "$key" "$name" "$category"
+
+  if [[ "$itype" == apt_install:* ]]; then
+    local pkg="${itype#apt_install:}"
+    if _tool_is_installed "$name" "$dest"; then log_ok "$name already on system"; return 0; fi
+    if apt-get install -y -qq "$pkg" 2>/dev/null; then log_ok "$name via apt"
+    else _git_clone_fallback "$name" "$url" "$dest"; fi
+    return 0
+  fi
+
+  if [[ "$itype" == pip_install:* ]]; then
+    local ppkg="${itype#pip_install:}"
+    if _tool_is_installed "$name" "$dest"; then log_ok "$name already on system"; return 0; fi
+    if pip3 install -q "$ppkg" --break-system-packages 2>/dev/null; then log_ok "$name via pip"
+    else _git_clone_fallback "$name" "$url" "$dest"; fi
+    return 0
+  fi
+
+  if _tool_is_installed "$name" "$dest"; then
+    log_ok "$name already on system (skipping clone)"
+    return 0
+  fi
+  if [[ -d "$dest/.git" ]]; then
+    git -C "$dest" pull -q 2>/dev/null || true
+  else
+    git clone --depth=1 -q "$url" "$dest" 2>/dev/null || {
+      log_err "Clone failed: $name"; return 1
+    }
+  fi
+  _post_install "$dest" "$itype"
+  log_ok "$name installed"
+}
+
+_progress_bar() {
+  local cur="$1" tot="$2" w=46
+  (( tot == 0 )) && return
+  local f=$(( cur * w / tot )) e=$(( w - cur * w / tot ))
+  local bf="" be=""
+  (( f > 0 )) && bf=$(printf '#%.0s' $(seq 1 "$f"))
+  (( e > 0 )) && be=$(printf '.%.0s' $(seq 1 "$e"))
+  printf "\r  ${RB}[${NC}${RB}%s${NC}${D}%s${NC}${RB}]${NC} %d/%d" "$bf" "$be" "$cur" "$tot"
+}
+
+war_mode() {
+  clear
+  echo -e "${RB}"
+  echo "  ██╗    ██╗ █████╗ ██████╗      ███╗   ███╗ ██████╗ ██████╗ ███████╗"
+  echo "  ██║    ██║██╔══██╗██╔══██╗     ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
+  echo "  ██║ █╗ ██║███████║██████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  "
+  echo "  ██║███╗██║██╔══██║██╔══██╗     ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
+  echo "  ╚███╔███╔╝██║  ██║██║  ██║     ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
+  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
+  echo -e "${NC}${RB}  [!]  ALL WEAPONS DEPLOYING - STAND CLEAR  [!]${NC}"
+  sleep 1
+
+  mkdir -p "$ARSENAL_DIR" "$LOG_DIR"
+  local keys=()
+  while IFS= read -r k; do keys+=("$k"); done < <(
+    printf '%s\n' "${!TOOL_REGISTRY[@]}" | sort -n
+  )
+  local total=${#keys[@]} count=0
+  local pids=() running_keys=() failed=()
+
+  for key in "${keys[@]}"; do
+    (( count++ ))
+    IFS='|' read -r name _ _ _ <<< "${TOOL_REGISTRY[$key]}"
+    log_war "[$count/$total] Deploying: $name"
+    install_tool "$key" >> "$LOG_DIR/war_$count.log" 2>&1 &
+    pids+=($!)
+    running_keys+=("$key")
+    if (( ${#pids[@]} >= WAR_JOBS )); then
+      if ! wait "${pids[0]}" 2>/dev/null; then failed+=("${running_keys[0]}"); fi
+      pids=("${pids[@]:1}")
+      running_keys=("${running_keys[@]:1}")
+    fi
+    _progress_bar "$count" "$total"
+  done
+  local i=0
+  for pid in "${pids[@]}"; do
+    if ! wait "$pid" 2>/dev/null; then failed+=("${running_keys[$i]:-?}"); fi
+    (( i++ )) || true
+  done
+  echo ""
+  echo -e "\n${RB}  WAR COMPLETE - $count WEAPONS DEPLOYED${NC}"
+  (( ${#failed[@]} > 0 )) && echo -e "${Y}  Failed: ${failed[*]}${NC}"
+  echo ""
+}
+
+show_arsenal() {
+  local current_cat=""
+  echo ""
+  echo -e "${B}${Y}  [*]  WEAPONS ARSENAL  [*]${NC}"
+  echo -e "  ══════════════════════════════════════════════════════"
+  while IFS= read -r key; do
+    IFS='|' read -r name category _ _ <<< "${TOOL_REGISTRY[$key]}"
+    if [[ "$category" != "$current_cat" ]]; then
+      current_cat="$category"
+      echo -e "\n${B}${M}    -- $category --${NC}"
+    fi
+    local tag=""
+    _tool_is_installed "$name" "$ARSENAL_DIR/$name" && tag="${G}[installed]${NC}"
+    printf "  ${C}[%03d]${NC}  %-32s%b\n" "$key" "$name" "$tag"
+  done < <(printf '%s\n' "${!TOOL_REGISTRY[@]}" | sort -n)
+  echo -e "\n  ══════════════════════════════════════════════════════"
+  echo -e "\n  ${C}number${NC} -> install  |  ${RB}war${NC} -> all tools  |  ${Y}back${NC} -> return\n"
+
+  while true; do
+    echo -ne "${Y}arsenal> ${NC}"
+    read -r choice || break
+    case "${choice,,}" in
+      war)         war_mode; show_arsenal; return ;;
+      back|exit|q) break ;;
+      ''|*[!0-9]*) echo -e "${R}Enter a number, war, or back.${NC}" ;;
+      *)           install_tool "$choice" ;;
+    esac
+  done
+}
+
+show_arsenal
+MENU
+  chmod +x "$ARSENAL_MENU"
+  log_ok "Arsenal menu -> $ARSENAL_MENU"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  VIKING CLI SCRIPT
+# ════════════════════════════════════════════════════════════════
+write_viking_script() {
+  log_step "5" "Writing VIKING CLI -> $INSTALL_PATH..."
+  cat > "$INSTALL_PATH" << 'VIKINGSCRIPT'
+#!/bin/bash
+# ================================================================
+#  VIKING AI - Digital Longship Intelligence System
+#  Kali Linux CLI Security Assistant | MIT License
+#  Instagram: @s.k.7.l.d
+# ================================================================
+
+set -u
+
+# ── Paths ─────────────────────────────────────────────────────────
+readonly VIKING_DIR="/opt/viking"
+readonly ARSENAL_DIR="$VIKING_DIR/arsenal"
+readonly CONFIG_FILE="$VIKING_DIR/config"
+readonly TARGET_FILE="$VIKING_DIR/.current_target"
+readonly LOGFILE="$HOME/.viking_history.log"
+readonly SCAN_DIR="$HOME/viking_scans"
+readonly OLLAMA_API="http://localhost:11434/api/chat"
+
+[[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE" 2>/dev/null || true
+MODEL="${VIKING_MODEL:-tinyllama}"
+CURRENT_TARGET=""
+[[ -f "$TARGET_FILE" ]] && CURRENT_TARGET="$(cat "$TARGET_FILE" 2>/dev/null)" || true
+
+# ── Colors ────────────────────────────────────────────────────────
+R='\033[0;31m'; RB='\033[1;31m'; G='\033[0;32m'; C='\033[0;36m'
+Y='\033[1;33m'; M='\033[0;35m'; B='\033[1m'; D='\033[2m'; W='\033[1;37m'; NC='\033[0m'
+
+# ── Models ───────────────────────────────────────────────────────
+readonly -a AVAILABLE_MODELS=(
+  "tinyllama"    # default - fastest ~600MB
+  "llama3.2:3b"  # better reasoning ~2GB
+  "qwen2.5:3b"   # strong code + security ~2GB
 )
 
-declare -A CMD_TO_PKG=(
-    ["curl"]="curl"
-    ["wget"]="wget"
-    ["git"]="git"
-    ["jq"]="jq"
-    ["python3"]="python3"
-    ["pip3"]="python3-pip"
-    ["tar"]="tar"
-    ["unzip"]="unzip"
-    ["tmux"]="tmux"
-    ["screen"]="screen"
+# ── System prompt ────────────────────────────────────────────────
+readonly SYSTEM_PROMPT='You are VIKING, a battle-hardened cyber hacker with the soul of a Norse warrior. Confident, direct, dark humour. For greetings respond in character and be chatty. For technical tasks give exact commands and suggest the next step. Never output command formats when the user is just talking.'
+
+# ── Few-shot examples ────────────────────────────────────────────
+readonly FEW_SHOT_JSON='{"role":"user","content":"hey"},{"role":"assistant","content":"Ha! A warrior enters the longship. I am VIKING - cyber raider and digital berserker. Who are we hunting today?"},{"role":"user","content":"what can you do"},{"role":"assistant","content":"Scan targets, crack networks, find vulnerabilities, run exploits, enumerate subdomains. Name the target and I plan the raid."},{"role":"user","content":"scan 192.168.1.1"},{"role":"assistant","content":"Scouting the target.\nCOMMAND: nmap -sV --open -T4 192.168.1.1\nEXPLANATION: Maps open ports and services.\nWant me to dig deeper once we have results?"},'
+
+# ── Load entrypoints registry ─────────────────────────────────────
+declare -A TOOL_ENTRYPOINTS=()
+[[ -f "$VIKING_DIR/arsenal_registry.sh" ]] && \
+  source "$VIKING_DIR/arsenal_registry.sh" 2>/dev/null || true
+
+# ════════════════════════════════════════════════════════════════
+#  CORE HELPERS
+# ════════════════════════════════════════════════════════════════
+log()         { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >> "$LOGFILE" 2>/dev/null || true; }
+v_say()       { echo -e "${Y}[VIKING]${NC} $1"; }
+v_info()      { echo -e "${C}[VIKING]${NC} $1"; }
+v_err()       { echo -e "${R}[VIKING]${NC} $*"; }
+v_ok()        { echo -e "${G}[VIKING]${NC} $*"; }
+
+save_config() {
+  printf 'VIKING_MODEL="%s"\n' "$MODEL" > "$CONFIG_FILE" 2>/dev/null || true
+}
+
+set_target() {
+  CURRENT_TARGET="$1"
+  printf '%s' "$CURRENT_TARGET" > "$TARGET_FILE" 2>/dev/null || true
+  save_config
+  v_ok "Target locked: $CURRENT_TARGET"
+}
+
+json_escape() {
+  printf '%s' "$1" | python3 -c \
+    'import sys,json; print(json.dumps(sys.stdin.read()), end="")' 2>/dev/null
+}
+
+# ── Streaming AI ─────────────────────────────────────────────────
+viking_think() {
+  local prompt="$*"
+  local sys_esc user_esc payload
+  sys_esc=$(json_escape "$SYSTEM_PROMPT")
+  user_esc=$(json_escape "$prompt")
+  payload=$(printf \
+    '{"model":"%s","stream":true,"options":{"temperature":0.3,"num_predict":350,"num_ctx":512},"messages":[{"role":"system","content":%s},%s{"role":"user","content":%s}]}' \
+    "$MODEL" "$sys_esc" "$FEW_SHOT_JSON" "$user_esc")
+
+  curl -sS --no-buffer \
+    -H "Content-Type: application/json" \
+    -d "$payload" \
+    "$OLLAMA_API" 2>/dev/null \
+  | python3 -u -c "
+import sys, json
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    try:
+        d = json.loads(line)
+        t = d.get('message', {}).get('content', '')
+        if t:
+            sys.stdout.write(t)
+            sys.stdout.flush()
+    except Exception:
+        pass
+sys.stdout.write('\n')
+sys.stdout.flush()
+" 2>/dev/null
+}
+
+warm_model() {
+  curl -sS -o /dev/null \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"$MODEL\",\"stream\":false,\"options\":{\"temperature\":0.3,\"num_predict\":1,\"num_ctx\":512},\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" \
+    "$OLLAMA_API" 2>/dev/null &
+}
+
+ai_response() {
+  echo -ne "${G}"
+  viking_think "$@"
+  echo -e "${NC}"
+}
+
+# ── Input helpers ─────────────────────────────────────────────────
+# match: takes the input string as first arg, pattern as second
+# Called as: match "$INPUT" "pattern"
+match() { [[ "${1,,}" =~ $2 ]]; }
+
+extract_target() {
+  # Takes the raw input string as argument
+  local input_str="$1"
+  local t
+  t=$(echo "$input_str" | grep -oE \
+    '([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?|https?://[^[:space:]]+|[a-zA-Z0-9._-]+\.[a-zA-Z]{2,4}(/[^[:space:]]*)?' \
+    | grep -v '^[0-9]$' | head -1)
+  # Fall back to persistent target if nothing found in input
+  if [[ -z "$t" && -n "$CURRENT_TARGET" ]]; then
+    t="$CURRENT_TARGET"
+    echo -e "${D}  (using locked target: $CURRENT_TARGET)${NC}" >&2
+  fi
+  echo "$t"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  UNIVERSAL TOOL LAUNCHER
+#  Checks in order:
+#   1. System PATH (all Kali built-in tools)
+#   2. Known entrypoint from TOOL_ENTRYPOINTS map
+#   3. Auto-scan arsenal clone dir
+#   4. apt auto-install
+#   5. Ask user if they want to install
+# ════════════════════════════════════════════════════════════════
+
+# apt package map for auto-install
+declare -A _APT=(
+  [nmap]="nmap"                   [masscan]="masscan"
+  [rustscan]="rustscan"           [nikto]="nikto"
+  [gobuster]="gobuster"           [ffuf]="ffuf"
+  [feroxbuster]="feroxbuster"     [dirsearch]="dirsearch"
+  [sqlmap]="sqlmap"               [commix]="commix"
+  [wpscan]="wpscan"               [dalfox]="dalfox"
+  [wifite]="wifite"               [airgeddon]="airgeddon"
+  [wifiphisher]="wifiphisher"     [aircrack-ng]="aircrack-ng"
+  [bettercap]="bettercap"         [hydra]="hydra"
+  [hashcat]="hashcat"             [john]="john"
+  [tshark]="tshark"               [wireshark]="wireshark"
+  [msfconsole]="metasploit-framework"
+  [netexec]="netexec"             [responder]="responder"
+  [bloodhound]="bloodhound"       [amass]="amass"
+  [subfinder]="subfinder"         [sherlock]="sherlock"
+  [theharvester]="theharvester"   [whois]="whois"
+  [nuclei]="nuclei"               [naabu]="naabu"
+  [katana]="katana"               [httpx]="httpx"
+  [dnsx]="dnsx"                   [hcxdumptool]="hcxdumptool"
+  [hcxtools]="hcxtools"           [burpsuite]="burpsuite"
+  [zaproxy]="zaproxy"             [maltego]="maltego"
+  [setoolkit]="set"               [pixiewps]="pixiewps"
+  [reaver]="reaver"               [airmon-ng]="aircrack-ng"
+  [airodump-ng]="aircrack-ng"     [aireplay-ng]="aircrack-ng"
+  [bulk-extractor]="bulk-extractor"
+  [powershell-empire]="powershell-empire"
+  [holehe]="holehe"               [maigret]="maigret"
 )
 
-check_dependencies() {
-    print_step "DEPENDENCY CHECK"
+# tool name -> binary name for cases where they differ
+declare -A _BIN_MAP=(
+  [metasploit]="msfconsole"       [msf]="msfconsole"
+  [airmon]="airmon-ng"            [airodump]="airodump-ng"
+  [aireplay]="aireplay-ng"        [airbase]="airbase-ng"
+  [set]="setoolkit"               [se-toolkit]="setoolkit"
+  [nth]="nth"                     [name-that-hash]="nth"
+  [rustscan]="rustscan"           [RustScan]="rustscan"
+  [theharvester]="theHarvester"
+)
 
-    local missing_cmds=()
-
-    for cmd in "${REQUIRED_CMDS[@]}"; do
-        if command -v "${cmd}" &>/dev/null; then
-            print_ok "${cmd} — found"
-        else
-            print_warn "${cmd} — MISSING"
-            missing_cmds+=("${cmd}")
-        fi
-    done
-
-    if [[ "${#missing_cmds[@]}" -gt 0 ]]; then
-        print_info "Missing: ${missing_cmds[*]}"
-        if confirm "Install missing dependencies?" "y"; then
-            install_missing_deps "${missing_cmds[@]}"
-        else
-            print_warn "Skipping. Some features may be unavailable."
-        fi
-    else
-        print_ok "All core dependencies satisfied"
-    fi
+# Check if a tool is installed (PATH or arsenal dir)
+_tool_available() {
+  local name="$1"
+  local bin="${_BIN_MAP[$name]:-$name}"
+  command -v "$bin" &>/dev/null && return 0
+  command -v "$name" &>/dev/null && return 0
+  command -v "${name,,}" &>/dev/null && return 0
+  local tool_dir="$ARSENAL_DIR/$name"
+  [[ -d "$tool_dir" ]] || return 1
+  local ep="${TOOL_ENTRYPOINTS[$name]:-}"
+  if [[ -n "$ep" ]]; then
+    local script="${ep%%|*}"
+    [[ -f "$tool_dir/$script" ]] && return 0
+  fi
+  find "$tool_dir" -maxdepth 2 -type f \( -name "*.py" -o -name "*.sh" -o -executable \) \
+    2>/dev/null | grep -q . && return 0
+  return 1
 }
 
-install_missing_deps() {
-    local missing=("$@")
-    local pkgs_to_install=()
-
-    for cmd in "${missing[@]}"; do
-        pkgs_to_install+=("${CMD_TO_PKG[${cmd}]:-${cmd}}")
-    done
-
-    print_info "Installing: ${pkgs_to_install[*]}"
-    spinner_start "Installing missing packages..."
-
-    if apt-get install -y "${pkgs_to_install[@]}" >> "${LOG_FILE}" 2>> "${ERROR_LOG}"; then
-        spinner_stop "ok" "Dependencies installed"
-    else
-        spinner_stop "warn" "Some dependencies failed — continuing"
-    fi
-}
-
-# =============================================================================
-# PACKAGE MANAGER — SAFE APT OPERATIONS
-# =============================================================================
-
-run_apt_operations() {
-    print_step "SYSTEM PACKAGES"
-
-    if [[ "${DISTRO_SUPPORTED}" -eq 0 ]]; then
-        print_warn "Skipping apt on unsupported distro"
+# Prompt user to install if tool not found
+_prompt_install() {
+  local name="$1"
+  echo ""
+  echo -e "${Y}  [!] $name is not installed.${NC}"
+  echo -e "  Options:"
+  echo -e "  ${C}[1]${NC}  Install via arsenal (recommended)"
+  local pkg="${_APT[${name,,}]:-$name}"
+  echo -e "  ${C}[2]${NC}  Quick apt install: sudo apt install $pkg"
+  echo -e "  ${C}[3]${NC}  Skip"
+  echo -ne "  ${Y}Choice [1-3]: ${NC}"
+  read -r install_choice
+  case "$install_choice" in
+    1)
+      bash "$VIKING_DIR/arsenal_menu.sh"
+      ;;
+    2)
+      v_info "Installing $pkg..."
+      if sudo apt-get install -y -qq "$pkg" 2>/dev/null; then
+        v_ok "$pkg installed"
         return 0
-    fi
-
-    if ! confirm "Run apt update && apt upgrade?" "y"; then
-        print_warn "Skipping system package update"
-        PKG_UPDATED=0
-        return 0
-    fi
-
-    # apt update
-    spinner_start "Updating package lists..."
-    if apt-get update -qq >> "${LOG_FILE}" 2>> "${ERROR_LOG}"; then
-        spinner_stop "ok" "Package lists updated"
-    else
-        spinner_stop "warn" "apt update had warnings (non-fatal)"
-    fi
-
-    # apt upgrade
-    spinner_start "Upgrading installed packages..."
-    if DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
-        -o Dpkg::Options::="--force-confdef" \
-        -o Dpkg::Options::="--force-confold" \
-        >> "${LOG_FILE}" 2>> "${ERROR_LOG}"; then
-        spinner_stop "ok" "System packages upgraded"
-    else
-        spinner_stop "warn" "apt upgrade had warnings (non-fatal)"
-    fi
-
-    # autoremove
-    spinner_start "Running autoremove..."
-    if apt-get autoremove -y >> "${LOG_FILE}" 2>> "${ERROR_LOG}"; then
-        spinner_stop "ok" "Autoremove complete"
-    else
-        spinner_stop "warn" "autoremove had warnings (non-fatal)"
-    fi
-
-    PKG_UPDATED=1
-    print_ok "System package operations complete"
+      else
+        v_err "apt install failed. Try: arsenal"
+        return 1
+      fi
+      ;;
+    *)
+      v_info "Skipping installation."
+      return 1
+      ;;
+  esac
 }
 
-# =============================================================================
-# DIRECTORY STRUCTURE
-# =============================================================================
+# Run a tool from arsenal clone dir using known or auto-detected entrypoint
+_run_from_arsenal() {
+  local name="$1"
+  shift
+  local tool_dir="$ARSENAL_DIR/$name"
+  local ep="${TOOL_ENTRYPOINTS[$name]:-}"
 
-create_directory_structure() {
-    print_step "CREATING DIRECTORY STRUCTURE"
+  # Use known entrypoint first
+  if [[ -n "$ep" ]]; then
+    local script="${ep%%|*}"
+    local interp="${ep##*|}"
+    local full_path="$tool_dir/$script"
+    if [[ -f "$full_path" ]]; then
+      case "$interp" in
+        python3) python3 "$full_path" "$@"; return $? ;;
+        bash)    bash   "$full_path" "$@"; return $? ;;
+        ruby)    ruby   "$full_path" "$@"; return $? ;;
+        php)     php    "$full_path" "$@"; return $? ;;
+        binary)  [[ -x "$full_path" ]] && "$full_path" "$@"; return $? ;;
+      esac
+    fi
+  fi
 
-    local dirs=(
-        "${INSTALL_DIR}"
-        "${CONFIG_DIR}"
-        "${PROMPTS_DIR}"
-        "${LOGS_DIR}"
-        "${ARSENAL_DIR}"
-        "${ARSENAL_DIR}/scanning"
-        "${ARSENAL_DIR}/web"
-        "${ARSENAL_DIR}/wifi"
-        "${ARSENAL_DIR}/osint"
-        "${ARSENAL_DIR}/exploit"
-        "${ARSENAL_DIR}/network"
-        "${ARSENAL_DIR}/forensics"
-        "${ARSENAL_DIR}/containers"
-        "${ARSENAL_DIR}/windows"
-        "${ARSENAL_DIR}/passwords"
-        "${ARSENAL_DIR}/phishing"
-        "${ARSENAL_DIR}/xss"
-        "${ARSENAL_DIR}/sqli"
-        "${ARSENAL_DIR}/anonymity"
-        "${ARSENAL_DIR}/wordlists"
-        "${ARSENAL_DIR}/tracking"
-        "${MODELS_DIR}"
-        "${CACHE_DIR}"
-        "${MODULES_DIR}"
-        "${THEMES_DIR}"
-        "${UI_DIR}"
-        "${TOOLS_DIR}"
-        "${TOOLS_DIR}/github"
-        "${TMP_DIR}"
-        "${BACKUPS_DIR}"
-        "${LOGS_DIR}/archive"
+  # Auto-detect: try common Python entrypoints
+  for py in "main.py" "${name}.py" "${name,,}.py" "run.py" "app.py" "start.py"; do
+    [[ -f "$tool_dir/$py" ]] && { python3 "$tool_dir/$py" "$@"; return $?; }
+  done
+
+  # Auto-detect: shell scripts
+  for sh in "${name}.sh" "${name,,}.sh" "run.sh" "start.sh" "main.sh"; do
+    [[ -f "$tool_dir/$sh" ]] && { bash "$tool_dir/$sh" "$@"; return $?; }
+  done
+
+  # Auto-detect: Ruby
+  for rb in "${name}.rb" "main.rb"; do
+    [[ -f "$tool_dir/$rb" ]] && { ruby "$tool_dir/$rb" "$@"; return $?; }
+  done
+
+  # Auto-detect: executable binary with same name
+  local lower_name="${name,,}"
+  for bin in "$tool_dir/$name" "$tool_dir/$lower_name"; do
+    [[ -f "$bin" && -x "$bin" ]] && { "$bin" "$@"; return $?; }
+  done
+
+  # Last resort: first executable found
+  local found
+  found=$(find "$tool_dir" -maxdepth 1 -type f -executable | head -1)
+  [[ -n "$found" ]] && { "$found" "$@"; return $?; }
+
+  return 1
+}
+
+# Main launch function
+launch_tool() {
+  local raw_name="$1"
+  shift
+  local name="$raw_name"
+
+  v_info "Launching: $raw_name${*:+ $*}"
+
+  # 1. Resolve alias -> real binary name
+  local resolved="${_BIN_MAP[$raw_name]:-$raw_name}"
+
+  # 2. System PATH (covers all Kali built-in tools)
+  if command -v "$resolved" &>/dev/null; then
+    "$resolved" "$@"
+    return $?
+  fi
+  if command -v "$raw_name" &>/dev/null; then
+    "$raw_name" "$@"
+    return $?
+  fi
+
+  # 3. Arsenal clone directory
+  if [[ -d "$ARSENAL_DIR/$raw_name" ]]; then
+    _run_from_arsenal "$raw_name" "$@"
+    local rc=$?
+    if (( rc == 0 )); then return 0; fi
+    v_err "Found arsenal dir for $raw_name but entrypoint failed (exit $rc)"
+  fi
+
+  # 4. Case-insensitive search of arsenal dir
+  local found_dir
+  found_dir=$(find "$ARSENAL_DIR" -maxdepth 1 -type d \
+    -iname "$raw_name" 2>/dev/null | head -1)
+  if [[ -n "$found_dir" ]]; then
+    local dir_name; dir_name=$(basename "$found_dir")
+    _run_from_arsenal "$dir_name" "$@"
+    return $?
+  fi
+
+  # 5. apt auto-install
+  local pkg="${_APT[${raw_name,,}]:-}"
+  if [[ -n "$pkg" ]]; then
+    v_info "$raw_name not found - attempting: sudo apt install $pkg"
+    if sudo apt-get install -y -qq "$pkg" 2>/dev/null; then
+      v_ok "Installed $pkg"
+      if command -v "$resolved" &>/dev/null; then
+        "$resolved" "$@"; return $?
+      fi
+      if command -v "$raw_name" &>/dev/null; then
+        "$raw_name" "$@"; return $?
+      fi
+    fi
+  fi
+
+  # 6. Not found - prompt user
+  _prompt_install "$raw_name"
+  return 1
+}
+
+# GUI launcher - avoids & || syntax issues and checks display
+launch_gui() {
+  local cmd="$1"
+  local fallback="${2:-Use CLI alternative}"
+  if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    if command -v "$cmd" &>/dev/null; then
+      nohup "$cmd" &>/dev/null &
+      v_ok "$cmd launched in background"
+    else
+      v_err "$cmd not found."
+      _prompt_install "$cmd"
+    fi
+  else
+    v_err "No display detected (SSH without X11 forwarding)."
+    echo -e "  ${Y}Tip:${NC} $fallback"
+    echo -e "  ${Y}SSH tip:${NC} ssh -X user@host  then run: $cmd"
+  fi
+}
+
+# Safe sudo wrapper: resolves binary path before sudo
+# Fixes the "sudo cannot run shell functions" bug
+sudo_tool() {
+  local cmd="$1"
+  shift
+  local resolved="${_BIN_MAP[$cmd]:-$cmd}"
+  local bin_path
+  if bin_path=$(command -v "$resolved" 2>/dev/null); then
+    sudo "$bin_path" "$@"
+  elif bin_path=$(command -v "$cmd" 2>/dev/null); then
+    sudo "$bin_path" "$@"
+  else
+    v_err "Cannot sudo $cmd - binary not found"
+    _prompt_install "$cmd"
+  fi
+}
+
+# ════════════════════════════════════════════════════════════════
+#  SCAN / OUTPUT HELPERS
+# ════════════════════════════════════════════════════════════════
+mkdir -p "$SCAN_DIR" 2>/dev/null || true
+
+ask_save_output() {
+  local result="$1" target="$2" tool="$3"
+  echo ""
+  echo -ne "${Y}  Save output to .txt file? [y/N]: ${NC}"
+  read -r sc
+  if [[ "${sc,,}" == "y" ]]; then
+    local safe; safe=$(printf '%s' "$target" | tr '/:?&= ' '_' | tr -dc '[:alnum:]_.-' | cut -c1-50)
+    local fname="${SCAN_DIR}/${tool}_${safe}_$(date '+%Y%m%d_%H%M%S').txt"
+    printf '%s\n' "$result" > "$fname"
+    v_ok "Saved: $fname"
+    echo -e "${D}  Open with: cat \"$fname\"  |  View folder: ls $SCAN_DIR/${NC}"
+  fi
+}
+
+ask_ai_analysis() {
+  local result="$1" target="$2" tool="$3"
+  echo ""
+  echo -ne "${Y}  VIKING analyse output? [Y/n]: ${NC}"
+  read -r ac
+  if [[ "${ac,,}" != "n" ]]; then
+    v_info "Analysing..."
+    echo ""
+    ai_response "${tool} scan of ${target}. Analyse: findings, risk level, open ports/services, recommended next commands. Be tactical and concise. Scan output: ${result:0:1800}"
+  fi
+}
+
+ask_scan_type() {
+  echo ""
+  echo -e "${B}${Y}  Scan depth:${NC}"
+  echo -e "  ${C}[1]${NC}  Quick  - top 1000 ports  (fast)"
+  echo -e "  ${C}[2]${NC}  Medium - top 1000 + versions  (default)"
+  echo -e "  ${C}[3]${NC}  Full   - all 65535 ports + scripts  (slow)"
+  echo -ne "  ${Y}[1-3]: ${NC}"
+  read -r sc
+  case "$sc" in
+    1) echo "-T4 --open" ;;
+    3) echo "-sV -sC -p- -T4 --open" ;;
+    *) echo "-sV --open -T4" ;;
+  esac
+}
+
+# ════════════════════════════════════════════════════════════════
+#  BANNER
+# ════════════════════════════════════════════════════════════════
+show_banner() {
+  clear
+  # ── Dragon prow ────────────────────────────────────────────────────────
+  echo -e "${RB}                              >>==>{  VIKING AI  }===>>        ${NC}"
+  echo -e "${D}${C}                                   |         |${NC}"
+  echo -e "${D}${C}                                  /|\\       /|\\${NC}"
+  # ── Sails: red stripe / white fill alternating ─────────────────────────
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${RB}//////////////////|       |${RB}//////////////////|${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              |${W}     >>=====>>     ${RB}|       |${W}     >>=====>>     ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  echo -e "${RB}              |${W}                  ${RB}|       |${W}                  ${RB}|${NC}"
+  echo -e "${RB}              +==================+       +==================+${NC}"
+  # ── Mast base + yard ───────────────────────────────────────────────────
+  echo -e "${D}${C}                                   |         |${NC}"
+  echo -e "${Y}    o==========o==========${NC}${C}||${NC}${Y}==========o==========o${NC}"
+  # ── Shields ────────────────────────────────────────────────────────────
+  printf "  ${Y}(O) (O) (O) (O)${NC}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${Y}(O) (O) (O) (O)${NC}\n"
+  # ── Hull ───────────────────────────────────────────────────────────────
+  printf "         ${RB}___${C}____________________________________________________${RB}___${NC}\n"
+  printf "        ${RB}/${NC}${C} ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo  ooo ${RB}\\${NC}\n"
+  printf "       ${RB}/${NC}${C}______________________________________________________${RB}\\${NC}\n"
+  # ── Waterline ──────────────────────────────────────────────────────────
+  printf "  ${C}~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^${NC}\n"
+  printf "  ${D}${C}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~${NC}\n"
+  # ── Logo ───────────────────────────────────────────────────────────────
+  echo -e "${B}${Y}"
+  echo "  ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗  ██████╗      █████╗ ██╗"
+  echo "  ██║   ██║██║██║ ██╔╝██║████╗  ██║ ██╔════╝     ██╔══██╗██║"
+  echo "  ██║   ██║██║█████╔╝ ██║██╔██╗ ██║ ██║  ███╗    ███████║██║"
+  echo "  ╚██╗ ██╔╝██║██╔═██╗ ██║██║╚██╗██║ ██║   ██║    ██╔══██║██║"
+  echo "   ╚████╔╝ ██║██║  ██╗██║██║ ╚████║ ╚██████╔╝    ██║  ██║██║"
+  echo "    ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝  ╚═════╝     ╚═╝  ╚═╝╚═╝"
+  echo -e "${NC}"
+  echo -e "  ${C}Digital Longship Intelligence System${NC}  ${D}| @s.k.7.l.d${NC}"
+  echo -e "  ${D}════════════════════════════════════════════${NC}"
+  local tgt_disp="${D}none${NC}"
+  [[ -n "$CURRENT_TARGET" ]] && tgt_disp="${G}${CURRENT_TARGET}${NC}"
+  echo -e "  Model: ${G}${MODEL}${NC}  |  Target: ${tgt_disp}  |  Type ${Y}help${NC}"
+  echo ""
+}
+
+
+# ════════════════════════════════════════════════════════════════
+#  WELCOME WARRIOR
+# ════════════════════════════════════════════════════════════════
+show_welcome() {
+  echo -e "${Y}"
+  echo "  ██╗    ██╗███████╗██╗      ██████╗  ██████╗ ███╗   ███╗███████╗"
+  echo "  ██║    ██║██╔════╝██║     ██╔════╝ ██╔═══██╗████╗ ████║██╔════╝"
+  echo "  ██║ █╗ ██║█████╗  ██║     ██║      ██║   ██║██╔████╔██║█████╗  "
+  echo "  ██║███╗██║██╔══╝  ██║     ██║      ██║   ██║██║╚██╔╝██║██╔══╝  "
+  echo "  ╚███╔███╔╝███████╗███████╗╚██████╗ ╚██████╔╝██║ ╚═╝ ██║███████╗"
+  echo "   ╚══╝╚══╝ ╚══════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚══════╝"
+  echo ""
+  echo "  ██╗    ██╗ █████╗ ██████╗ ██████╗ ██╗ ██████╗ ██████╗ "
+  echo "  ██║    ██║██╔══██╗██╔══██╗██╔══██╗██║██╔═══██╗██╔══██╗"
+  echo "  ██║ █╗ ██║███████║██████╔╝██████╔╝██║██║   ██║██████╔╝"
+  echo "  ██║███╗██║██╔══██║██╔══██╗██╔══██╗██║██║   ██║██╔══██╗"
+  echo "  ╚███╔███╔╝██║  ██║██║  ██║██║  ██║██║╚██████╔╝██║  ██║"
+  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝"
+  echo -e "${NC}"
+  echo -e "${C}  The longship is crewed. The raid begins. What is the target?${NC}"
+  [[ -n "$CURRENT_TARGET" ]] && echo -e "${G}  Active target: $CURRENT_TARGET${NC}"
+  echo ""
+}
+
+# ════════════════════════════════════════════════════════════════
+#  HELP
+# ════════════════════════════════════════════════════════════════
+show_help() {
+  echo ""
+  echo -e "${B}${Y}  [*]  VIKING COMMAND REFERENCE  [*]${NC}"
+  echo -e "  ══════════════════════════════════════\n"
+  echo -e "  ${C}TARGET MEMORY${NC}"
+  printf "    %-32s — %s\n" "target <ip/url>" "lock target (all tools use it automatically)"
+  printf "    %-32s — %s\n" "target clear" "clear locked target"
+  printf "    %-32s — %s\n" "status" "show model, target, ollama status"
+  echo ""
+
+  local -a sections=(
+    "SCANNING:scan [target]|nmap + AI analysis:masscan [target]|fast port scan:rustscan [target]|Rust port scan:naabu [target]|fast port finder:nuclei [target]|CVE template scan:nikto [target]|web vuln scan:ping <ip>|probe target:whois <domain>|WHOIS lookup"
+    "WEB ATTACKS:gobuster [target]|directory brute:ffuf [target]|fast fuzzer:feroxbuster [target]|recursive dir:dirsearch [target]|dir search:sqlmap [target]|SQL injection:commix [target]|command injection:wpscan [target]|WordPress scan:xsstrike [target]|XSS scan:dalfox [target]|XSS fuzzer:katana [target]|web crawler"
+    "PASSIVE RECON:waybackurls <domain>|historical URLs:gau <domain>|all URLs:hakrawler <url>|fast web crawler:dnsx <domain>|DNS brute force"
+    "OSINT:theharvester <domain>|email + host recon:amass <domain>|subdomain enum:subfinder <domain>|subdomains:sherlock <user>|username hunt:holehe <email>|account check:maigret|username search"
+    "WIRELESS:wifite|wireless attacks:airgeddon|full wifi audit:oneshot|WPS/PMKID attack:wifiphisher|evil twin AP:fluxion|WPA capture:bettercap|MITM + wifi:hcxdumptool|PMKID capture"
+    "ACTIVE DIRECTORY:netexec|AD Swiss Army knife:responder|LLMNR/NTLMv2 capture:bloodhound|AD attack paths:certipy|AD CS enumeration:impacket|impacket suite"
+    "POST EXPLOITATION:linpeas|Linux priv esc:pspy|process monitor (no root)"
+    "PASSWORDS:hashcat|hash cracking:john|John the Ripper:hydra|brute force:name-that-hash|identify hash type"
+    "EXPLOITATION:metasploit|msfconsole:netcat|reverse/bind shell:msfpc|payload creator:venom|shellcode generator"
+    "PHISHING:setoolkit|social engineer toolkit:evilginx|reverse proxy phishing"
+    "ANONYMITY:anonsurf|route traffic via Tor"
+    "ARSENAL & MODEL:arsenal|browse + install all tools:model|switch AI models:model <name>|quick switch"
+    "SYSTEM:update|pull latest version from GitHub:help|this menu:history|session log:banner|redraw banner:quit|leave VIKING"
+  )
+
+  for section in "${sections[@]}"; do
+    local title="${section%%:*}" rest="${section#*:}"
+    echo -e "  ${C}${title}${NC}"
+    IFS=':' read -ra cmds <<< "$rest"
+    for cmd in "${cmds[@]}"; do
+      printf "    %-32s — %s\n" "${cmd%%|*}" "${cmd##*|}"
+    done
+    echo ""
+  done
+}
+
+# ════════════════════════════════════════════════════════════════
+#  MODEL SWITCHER
+# ════════════════════════════════════════════════════════════════
+show_models() {
+  local installed_list
+  installed_list=$(ollama list 2>/dev/null | awk 'NR>1{print $1}') || installed_list=""
+
+  echo ""
+  echo -e "${B}${Y}  [*]  AVAILABLE MODELS  [*]${NC}"
+  echo -e "  ════════════════════════════════════\n"
+
+  local i=1
+  for m in "${AVAILABLE_MODELS[@]}"; do
+    local active="" inst=""
+    [[ "$m" == "$MODEL" ]] && active="${G} <- active${NC}"
+    echo "$installed_list" | grep -Fxq "$m" 2>/dev/null && inst="${D}[installed]${NC}"
+    printf "  ${C}[%d]${NC}  %-22s%b %b\n" "$i" "$m" "$active" "$inst"
+    (( i++ ))
+  done
+
+  echo -e "\n  ${D}All models run under 3 GB RAM.${NC}"
+  echo -e "  Enter number, model name, or ${Y}back${NC} to cancel.\n"
+
+  while true; do
+    echo -ne "${Y}model> ${NC}"
+    read -r choice || break
+    case "${choice,,}" in
+      back|exit|'') break ;;
+      *[!0-9]*)
+        MODEL="$choice"; save_config; v_say "Switched to: $MODEL"; break ;;
+      *)
+        local idx=$(( choice - 1 ))
+        if (( idx >= 0 && idx < ${#AVAILABLE_MODELS[@]} )); then
+          MODEL="${AVAILABLE_MODELS[$idx]}"; save_config
+          v_say "Pulling $MODEL..."
+          ollama pull "$MODEL" 2>/dev/null || true
+          v_say "Active: $MODEL"; break
+        else
+          v_err "Invalid - enter 1, 2, 3, or back."
+        fi ;;
+    esac
+  done
+}
+
+# ════════════════════════════════════════════════════════════════
+#  MAIN INPUT HANDLER
+#  All tool handlers live here so local variables are valid.
+#  Returns 1 to exit the main loop, 0 to continue.
+# ════════════════════════════════════════════════════════════════
+handle_input() {
+  local INPUT="$1"
+  local TARGET="" RESULT=""
+
+  # ── Built-in exact commands ───────────────────────────────────
+  case "${INPUT,,}" in
+    quit|exit|/bye)
+      echo ""; v_say "The longship returns to port. Skal."; echo ""
+      return 1 ;;
+    help)    show_help;   return 0 ;;
+    banner)  show_banner; return 0 ;;
+    arsenal) bash "$VIKING_DIR/arsenal_menu.sh"; return 0 ;;
+    model)   show_models; return 0 ;;
+    history)
+      echo ""; cat "$LOGFILE" 2>/dev/null || v_err "No history yet."; echo ""
+      return 0 ;;
+    "target clear")
+      CURRENT_TARGET=""
+      printf '' > "$TARGET_FILE" 2>/dev/null || true
+      save_config; v_ok "Target cleared"; return 0 ;;
+    status)
+      echo ""
+      echo -e "  Model   : ${G}$MODEL${NC}"
+      echo -e "  Target  : ${G}${CURRENT_TARGET:-none}${NC}"
+      local ollama_st
+      curl -sf http://localhost:11434/ &>/dev/null && \
+        ollama_st="${G}online${NC}" || ollama_st="${R}offline${NC}"
+      echo -e "  Ollama  : $ollama_st"
+      echo ""; return 0 ;;
+  esac
+
+  # ── model <name> quick switch ─────────────────────────────────
+  if [[ "$INPUT" =~ ^[Mm]odel[[:space:]]+(.+)$ ]]; then
+    MODEL="${BASH_REMATCH[1]}"; save_config
+    v_say "Model -> $MODEL"; return 0
+  fi
+
+  # ── target <value> ───────────────────────────────────────────
+  if [[ "$INPUT" =~ ^[Tt]arget[[:space:]]+(.+)$ ]]; then
+    set_target "${BASH_REMATCH[1]}"; return 0
+  fi
+
+  # ════════════════════════════════════════════════════════════
+  #  TOOL HANDLERS
+  #  All variables declared local - valid because we are in a function.
+  #  extract_target receives $INPUT explicitly - no global dependency.
+  # ════════════════════════════════════════════════════════════
+
+  # ── NMAP / SCAN ──────────────────────────────────────────────
+  if match "$INPUT" "^scan[[:space:]]|^scan$|^nmap"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      local flags; flags=$(ask_scan_type)
+      v_info "Scouting: $TARGET"
+      echo ""
+      RESULT=$(sudo nmap $flags "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "nmap"
+      ask_ai_analysis "$RESULT" "$TARGET" "nmap"
+      log "SCAN: $TARGET"
+    else
+      v_err "No target. Usage: scan 192.168.1.1  or  target 192.168.1.1"
+    fi
+    return 0
+  fi
+
+  # ── NUCLEI ───────────────────────────────────────────────────
+  if match "$INPUT" "nuclei|cve.*scan|vuln.*scan"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available nuclei; then _prompt_install nuclei || return 0; fi
+      v_info "Nuclei CVE scan -> $TARGET"
+      RESULT=$(launch_tool nuclei -u "$TARGET" -silent 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "nuclei"
+      ask_ai_analysis "$RESULT" "$TARGET" "nuclei"
+    else
+      launch_tool nuclei
+    fi
+    return 0
+  fi
+
+  # ── MASSCAN ──────────────────────────────────────────────────
+  if match "$INPUT" "masscan"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available masscan; then _prompt_install masscan || return 0; fi
+      echo -e "${B}${Y}  masscan speed:${NC}"
+      echo -e "  ${C}[1]${NC}  Quick - top ports rate 1000"
+      echo -e "  ${C}[2]${NC}  Full  - all ports rate 10000"
+      echo -ne "  ${Y}[1-2]: ${NC}"
+      local mc; read -r mc
+      local mf="-p1-65535 --rate=1000"
+      [[ "$mc" == "2" ]] && mf="-p1-65535 --rate=10000"
+      v_info "Masscan -> $TARGET"
+      RESULT=$(sudo masscan "$TARGET" $mf 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "masscan"
+      ask_ai_analysis "$RESULT" "$TARGET" "masscan"
+    else
+      launch_tool masscan
+    fi
+    return 0
+  fi
+
+  # ── RUSTSCAN ─────────────────────────────────────────────────
+  if match "$INPUT" "rustscan"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available rustscan && ! _tool_available RustScan; then
+        _prompt_install RustScan || return 0
+      fi
+      v_info "RustScan -> $TARGET"
+      RESULT=$(launch_tool RustScan -- -a "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "rustscan"
+      ask_ai_analysis "$RESULT" "$TARGET" "rustscan"
+    else
+      launch_tool RustScan
+    fi
+    return 0
+  fi
+
+  # ── NAABU ────────────────────────────────────────────────────
+  if match "$INPUT" "naabu"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available naabu; then _prompt_install naabu || return 0; fi
+      v_info "Naabu -> $TARGET"
+      RESULT=$(launch_tool naabu -host "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "naabu"
+      ask_ai_analysis "$RESULT" "$TARGET" "naabu"
+    else
+      launch_tool naabu
+    fi
+    return 0
+  fi
+
+  # ── DNSX ─────────────────────────────────────────────────────
+  if match "$INPUT" "dnsx|dns.*brute"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available dnsx; then _prompt_install dnsx || return 0; fi
+      v_info "dnsx -> $TARGET"
+      RESULT=$(launch_tool dnsx -d "$TARGET" -silent 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "dnsx"
+    else
+      launch_tool dnsx
+    fi
+    return 0
+  fi
+
+  # ── NIKTO ────────────────────────────────────────────────────
+  if match "$INPUT" "nikto"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available nikto; then _prompt_install nikto || return 0; fi
+      echo -e "${B}${Y}  Nikto depth:${NC}"
+      echo -e "  ${C}[1]${NC}  Quick - basic checks"
+      echo -e "  ${C}[2]${NC}  Full  - all plugins"
+      echo -ne "  ${Y}[1-2]: ${NC}"
+      local nk; read -r nk
+      v_info "Nikto -> $TARGET"
+      if [[ "$nk" == "1" ]]; then
+        RESULT=$(nikto -h "$TARGET" -Plugins "headers;robots;outdated" 2>&1)
+      else
+        RESULT=$(nikto -h "$TARGET" 2>&1)
+      fi
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "nikto"
+      ask_ai_analysis "$RESULT" "$TARGET" "nikto"
+    else
+      ai_response "nikto usage guide"
+    fi
+    return 0
+  fi
+
+  # ── GOBUSTER / DIRB ──────────────────────────────────────────
+  if match "$INPUT" "gobuster|dirb|directory.*brute|dir.*scan"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      echo -e "${B}${Y}  Wordlist:${NC}"
+      echo -e "  ${C}[1]${NC}  Quick  - common.txt"
+      echo -e "  ${C}[2]${NC}  Medium - directory-list-2.3-medium.txt"
+      echo -e "  ${C}[3]${NC}  Full   - directory-list-2.3-big.txt"
+      echo -ne "  ${Y}[1-3]: ${NC}"
+      local dc; read -r dc
+      local wl
+      case "$dc" in
+        2) wl="/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt" ;;
+        3) wl="/usr/share/wordlists/dirbuster/directory-list-2.3-big.txt" ;;
+        *) wl="/usr/share/wordlists/dirb/common.txt" ;;
+      esac
+      v_info "Dir scan -> $TARGET"
+      if command -v gobuster &>/dev/null; then
+        RESULT=$(gobuster dir -u "$TARGET" -w "$wl" 2>&1)
+      elif command -v dirb &>/dev/null; then
+        RESULT=$(dirb "$TARGET" "$wl" 2>&1)
+      else
+        _prompt_install gobuster || return 0
+      fi
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "gobuster"
+      ask_ai_analysis "$RESULT" "$TARGET" "gobuster"
+    else
+      ai_response "gobuster command for: $INPUT"
+    fi
+    return 0
+  fi
+
+  # ── FFUF ─────────────────────────────────────────────────────
+  if match "$INPUT" "ffuf|fuzz"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available ffuf; then _prompt_install ffuf || return 0; fi
+      v_info "ffuf -> $TARGET"
+      RESULT=$(launch_tool ffuf -u "${TARGET}/FUZZ" \
+        -w /usr/share/wordlists/dirb/common.txt 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "ffuf"
+      ask_ai_analysis "$RESULT" "$TARGET" "ffuf"
+    else
+      launch_tool ffuf
+    fi
+    return 0
+  fi
+
+  # ── FEROXBUSTER ──────────────────────────────────────────────
+  if match "$INPUT" "feroxbuster|ferox"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available feroxbuster; then _prompt_install feroxbuster || return 0; fi
+      v_info "Feroxbuster -> $TARGET"
+      RESULT=$(launch_tool feroxbuster -u "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "feroxbuster"
+      ask_ai_analysis "$RESULT" "$TARGET" "feroxbuster"
+    else
+      launch_tool feroxbuster
+    fi
+    return 0
+  fi
+
+  # ── DIRSEARCH ────────────────────────────────────────────────
+  if match "$INPUT" "dirsearch"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available dirsearch; then _prompt_install dirsearch || return 0; fi
+      v_info "Dirsearch -> $TARGET"
+      RESULT=$(launch_tool dirsearch -u "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "dirsearch"
+      ask_ai_analysis "$RESULT" "$TARGET" "dirsearch"
+    else
+      launch_tool dirsearch
+    fi
+    return 0
+  fi
+
+  # ── SQLMAP ───────────────────────────────────────────────────
+  if match "$INPUT" "sqlmap|sqli|sql.*inject"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available sqlmap; then _prompt_install sqlmap || return 0; fi
+      echo -e "${B}${Y}  SQLmap level:${NC}"
+      echo -e "  ${C}[1]${NC}  Quick  - level 1, risk 1"
+      echo -e "  ${C}[2]${NC}  Medium - level 3, risk 2"
+      echo -e "  ${C}[3]${NC}  Full   - level 5, risk 3"
+      echo -ne "  ${Y}[1-3]: ${NC}"
+      local sq; read -r sq
+      local sf
+      case "$sq" in
+        2) sf="--level=3 --risk=2" ;;
+        3) sf="--level=5 --risk=3 --tamper=space2comment" ;;
+        *) sf="--level=1 --risk=1" ;;
+      esac
+      v_info "SQLmap -> $TARGET"
+      RESULT=$(launch_tool sqlmap -u "$TARGET" --batch $sf 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "sqlmap"
+      ask_ai_analysis "$RESULT" "$TARGET" "sqlmap"
+    else
+      ai_response "sqlmap command for: $INPUT"
+    fi
+    return 0
+  fi
+
+  # ── XSSTRIKE ─────────────────────────────────────────────────
+  if match "$INPUT" "xsstrike|xss.*strike"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available XSStrike; then _prompt_install XSStrike || return 0; fi
+      v_info "XSStrike -> $TARGET"
+      RESULT=$(launch_tool XSStrike -u "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "xsstrike"
+      ask_ai_analysis "$RESULT" "$TARGET" "xsstrike"
+    else
+      launch_tool XSStrike
+    fi
+    return 0
+  fi
+
+  # ── DALFOX ───────────────────────────────────────────────────
+  if match "$INPUT" "dalfox"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available dalfox; then _prompt_install dalfox || return 0; fi
+      v_info "Dalfox -> $TARGET"
+      RESULT=$(launch_tool dalfox url "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "dalfox"
+      ask_ai_analysis "$RESULT" "$TARGET" "dalfox"
+    else
+      launch_tool dalfox
+    fi
+    return 0
+  fi
+
+  # ── WPSCAN ───────────────────────────────────────────────────
+  if match "$INPUT" "wpscan|wordpress.*scan"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available wpscan; then _prompt_install wpscan || return 0; fi
+      echo -e "${B}${Y}  WPScan depth:${NC}"
+      echo -e "  ${C}[1]${NC}  Quick - basic scan"
+      echo -e "  ${C}[2]${NC}  Full  - enumerate users, plugins, themes"
+      echo -ne "  ${Y}[1-2]: ${NC}"
+      local wp; read -r wp
+      v_info "WPScan -> $TARGET"
+      if [[ "$wp" == "2" ]]; then
+        RESULT=$(launch_tool wpscan --url "$TARGET" --enumerate u,p,t 2>&1)
+      else
+        RESULT=$(launch_tool wpscan --url "$TARGET" 2>&1)
+      fi
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "wpscan"
+      ask_ai_analysis "$RESULT" "$TARGET" "wpscan"
+    else
+      ai_response "wpscan command for: $INPUT"
+    fi
+    return 0
+  fi
+
+  # ── COMMIX ───────────────────────────────────────────────────
+  if match "$INPUT" "commix|command.*inject"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available commix; then _prompt_install commix || return 0; fi
+      v_info "Commix -> $TARGET"
+      RESULT=$(launch_tool commix --url "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "commix"
+      ask_ai_analysis "$RESULT" "$TARGET" "commix"
+    else
+      ai_response "commix command injection for: $INPUT"
+    fi
+    return 0
+  fi
+
+  # ── KATANA ───────────────────────────────────────────────────
+  if match "$INPUT" "katana|web.*crawl"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available katana; then _prompt_install katana || return 0; fi
+      v_info "Katana -> $TARGET"
+      RESULT=$(launch_tool katana -u "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "katana"
+    else
+      launch_tool katana
+    fi
+    return 0
+  fi
+
+  # ── WAYBACKURLS ──────────────────────────────────────────────
+  if match "$INPUT" "wayback|waybackurls"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available waybackurls; then _prompt_install waybackurls || return 0; fi
+      v_info "Waybackurls -> $TARGET"
+      RESULT=$(echo "$TARGET" | launch_tool waybackurls 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "waybackurls"
+    else
+      v_err "Usage: waybackurls example.com"
+    fi
+    return 0
+  fi
+
+  # ── GAU ──────────────────────────────────────────────────────
+  if match "$INPUT" "^gau[[:space:]]|^gau$"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available gau; then _prompt_install gau || return 0; fi
+      v_info "gau -> $TARGET"
+      RESULT=$(launch_tool gau "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "gau"
+    else
+      launch_tool gau
+    fi
+    return 0
+  fi
+
+  # ── HAKRAWLER ────────────────────────────────────────────────
+  if match "$INPUT" "hakrawler"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available hakrawler; then _prompt_install hakrawler || return 0; fi
+      v_info "hakrawler -> $TARGET"
+      RESULT=$(echo "$TARGET" | launch_tool hakrawler 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "hakrawler"
+    else
+      launch_tool hakrawler
+    fi
+    return 0
+  fi
+
+  # ── THEHARVESTER ─────────────────────────────────────────────
+  if match "$INPUT" "theharvester|harvester"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available theHarvester && ! _tool_available theharvester; then
+        _prompt_install theHarvester || return 0
+      fi
+      v_info "theHarvester -> $TARGET"
+      RESULT=$(launch_tool theHarvester -d "$TARGET" -b all 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "theharvester"
+      ask_ai_analysis "$RESULT" "$TARGET" "theharvester"
+    else
+      launch_tool theHarvester
+    fi
+    return 0
+  fi
+
+  # ── SUBFINDER ────────────────────────────────────────────────
+  if match "$INPUT" "subfinder"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available subfinder; then _prompt_install subfinder || return 0; fi
+      v_info "Subfinder -> $TARGET"
+      RESULT=$(launch_tool subfinder -d "$TARGET" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "subfinder"
+      ask_ai_analysis "$RESULT" "$TARGET" "subfinder"
+    else
+      launch_tool subfinder
+    fi
+    return 0
+  fi
+
+  # ── AMASS ────────────────────────────────────────────────────
+  if match "$INPUT" "amass"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      if ! _tool_available amass; then _prompt_install amass || return 0; fi
+      echo -e "${B}${Y}  Amass mode:${NC}"
+      echo -e "  ${C}[1]${NC}  Passive - no direct contact"
+      echo -e "  ${C}[2]${NC}  Active  - full enum + brute"
+      echo -ne "  ${Y}[1-2]: ${NC}"
+      local am; read -r am
+      v_info "Amass -> $TARGET"
+      if [[ "$am" == "2" ]]; then
+        RESULT=$(launch_tool amass enum -active -brute -d "$TARGET" 2>&1)
+      else
+        RESULT=$(launch_tool amass enum -passive -d "$TARGET" 2>&1)
+      fi
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "amass"
+      ask_ai_analysis "$RESULT" "$TARGET" "amass"
+    else
+      launch_tool amass
+    fi
+    return 0
+  fi
+
+  # ── HOLEHE ───────────────────────────────────────────────────
+  if match "$INPUT" "holehe"; then
+    local email
+    email=$(echo "$INPUT" | grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' | head -1)
+    if [[ -n "$email" ]]; then
+      if ! _tool_available holehe; then _prompt_install holehe || return 0; fi
+      v_info "Holehe -> $email"
+      RESULT=$(launch_tool holehe "$email" 2>&1)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$email" "holehe"
+    else
+      v_err "Usage: holehe user@example.com"
+    fi
+    return 0
+  fi
+
+  # ── SHERLOCK ─────────────────────────────────────────────────
+  if match "$INPUT" "sherlock|username.*hunt"; then
+    if ! _tool_available sherlock; then _prompt_install sherlock || return 0; fi
+    local uname; uname=$(echo "$INPUT" | awk '{print $NF}')
+    v_info "Sherlock -> $uname"
+    RESULT=$(launch_tool sherlock "$uname" 2>&1)
+    echo "$RESULT"
+    ask_save_output "$RESULT" "$uname" "sherlock"
+    return 0
+  fi
+
+  # ── NAME-THAT-HASH ───────────────────────────────────────────
+  if match "$INPUT" "name.*that.*hash|nth|identify.*hash|what.*hash"; then
+    if ! _tool_available nth; then _prompt_install name-that-hash || return 0; fi
+    local hash_val; hash_val=$(echo "$INPUT" | awk '{print $NF}')
+    v_info "Identifying hash: $hash_val"
+    launch_tool nth --text "$hash_val"
+    return 0
+  fi
+
+  # ── LINPEAS ──────────────────────────────────────────────────
+  if match "$INPUT" "linpeas|linux.*priv.*esc|linux.*privesc"; then
+    v_info "Running LinPEAS..."
+    local peas_dir="$ARSENAL_DIR/PEASS-ng"
+    if [[ -f "$peas_dir/linPEAS/linpeas.sh" ]]; then
+      bash "$peas_dir/linPEAS/linpeas.sh" 2>&1 | tee "$SCAN_DIR/linpeas_$(date +%s).txt"
+    else
+      v_info "Downloading linpeas from GitHub..."
+      curl -sL https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh \
+        -o /tmp/linpeas.sh && bash /tmp/linpeas.sh 2>&1 | tee "$SCAN_DIR/linpeas_$(date +%s).txt"
+    fi
+    return 0
+  fi
+
+  # ── PSPY ─────────────────────────────────────────────────────
+  if match "$INPUT" "pspy|process.*spy|monitor.*proc"; then
+    v_info "Launching pspy..."
+    local pspy_dir="$ARSENAL_DIR/pspy"
+    if [[ -f "$pspy_dir/pspy64" ]]; then
+      "$pspy_dir/pspy64"
+    elif command -v pspy64 &>/dev/null; then
+      pspy64
+    else
+      v_info "Downloading pspy64..."
+      curl -sL https://github.com/DominicBreuker/pspy/releases/latest/download/pspy64 \
+        -o /tmp/pspy64 && chmod +x /tmp/pspy64 && /tmp/pspy64
+    fi
+    return 0
+  fi
+
+  # ── WIFITE ───────────────────────────────────────────────────
+  if match "$INPUT" "wifite|wifi.*attack|wireless.*attack"; then
+    if ! _tool_available wifite && ! _tool_available wifite2; then
+      _prompt_install wifite || return 0
+    fi
+    v_info "Launching Wifite..."
+    if command -v wifite &>/dev/null; then sudo wifite
+    else launch_tool wifite2; fi
+    return 0
+  fi
+
+  # ── AIRGEDDON ────────────────────────────────────────────────
+  if match "$INPUT" "airgeddon"; then
+    if ! _tool_available airgeddon; then _prompt_install airgeddon || return 0; fi
+    v_info "Launching Airgeddon..."
+    sudo_tool airgeddon
+    return 0
+  fi
+
+  # ── ONESHOT ──────────────────────────────────────────────────
+  if match "$INPUT" "oneshot|wps.*attack|pmkid"; then
+    local IFACE
+    IFACE=$(ip -o link show | awk '/wlan/{gsub(":",""); print $2; exit}') || IFACE="wlan0"
+    IFACE="${IFACE:-wlan0}"
+    v_info "OneShot WPS -> $IFACE"
+    if [[ -f "$ARSENAL_DIR/OneShot/oneshot.py" ]]; then
+      sudo python3 "$ARSENAL_DIR/OneShot/oneshot.py" -i "$IFACE"
+    elif [[ -f "/usr/share/oneshot/oneshot.py" ]]; then
+      sudo python3 /usr/share/oneshot/oneshot.py -i "$IFACE"
+    else
+      _prompt_install OneShot
+    fi
+    return 0
+  fi
+
+  # ── BETTERCAP ────────────────────────────────────────────────
+  if match "$INPUT" "bettercap"; then
+    if ! _tool_available bettercap; then _prompt_install bettercap || return 0; fi
+    v_info "Launching Bettercap..."
+    sudo_tool bettercap
+    return 0
+  fi
+
+  # ── HCXDUMPTOOL ──────────────────────────────────────────────
+  if match "$INPUT" "hcxdumptool|pmkid.*cap|handshake.*cap"; then
+    if ! _tool_available hcxdumptool; then _prompt_install hcxdumptool || return 0; fi
+    local IFACE
+    IFACE=$(ip -o link show | awk '/wlan/{gsub(":",""); print $2; exit}') || IFACE="wlan0"
+    IFACE="${IFACE:-wlan0}"
+    v_info "hcxdumptool -> $IFACE (Ctrl+C to stop)"
+    local pcap="$SCAN_DIR/capture_$(date +%s).pcapng"
+    mkdir -p "$SCAN_DIR"
+    # Use actual binary path for sudo (fixes the sudo + function bug)
+    local hcx_bin; hcx_bin=$(command -v hcxdumptool 2>/dev/null) || hcx_bin=""
+    if [[ -n "$hcx_bin" ]]; then
+      sudo "$hcx_bin" -i "$IFACE" -o "$pcap" --enable_status=1
+    else
+      v_err "hcxdumptool binary not found"
+    fi
+    v_ok "Capture saved: $pcap"
+    echo -e "  ${Y}Convert:${NC} hcxpcapngtool $pcap -o hash.hc22000"
+    return 0
+  fi
+
+  # ── HCXTOOLS ─────────────────────────────────────────────────
+  if match "$INPUT" "hcxtools|hcxpcap|convert.*pcap"; then
+    v_info "hcxtools usage:"
+    echo -e "  ${C}hcxpcapngtool capture.pcapng -o hash.hc22000${NC}"
+    echo -e "  ${C}hashcat -m 22000 hash.hc22000 /usr/share/wordlists/rockyou.txt${NC}"
+    return 0
+  fi
+
+  # ── FLUXION ──────────────────────────────────────────────────
+  if match "$INPUT" "fluxion"; then
+    if ! _tool_available fluxion; then _prompt_install fluxion || return 0; fi
+    v_info "Launching Fluxion..."
+    launch_tool fluxion
+    return 0
+  fi
+
+  # ── WIFIPHISHER ──────────────────────────────────────────────
+  if match "$INPUT" "wifiphisher"; then
+    if ! _tool_available wifiphisher; then _prompt_install wifiphisher || return 0; fi
+    v_info "Launching Wifiphisher..."
+    sudo_tool wifiphisher
+    return 0
+  fi
+
+  # ── AIRCRACK / AIRMON (guidance) ─────────────────────────────
+  if match "$INPUT" "aircrack|airmon|airodump|monitor.*mode"; then
+    if match "$INPUT" "open|launch|start|run"; then
+      local tool_name; tool_name=$(echo "$INPUT" | awk '{print tolower($2)}')
+      launch_tool "$tool_name"
+    else
+      v_info "Aircrack-ng guidance:"
+      ai_response "aircrack-ng step-by-step commands for: $INPUT"
+    fi
+    return 0
+  fi
+
+  # ── TSHARK ───────────────────────────────────────────────────
+  if match "$INPUT" "tshark|packet.*capture|sniff|capture.*traffic"; then
+    if ! _tool_available tshark; then _prompt_install tshark || return 0; fi
+    local IFACE
+    IFACE=$(ip -o link show | awk '!/lo/{gsub(":",""); print $2; exit}') || IFACE="eth0"
+    v_info "Capturing on ${IFACE:-eth0} (Ctrl+C to stop)"
+    sudo tshark -i "${IFACE:-eth0}" 2>&1 | head -80
+    return 0
+  fi
+
+  # ── HYDRA ────────────────────────────────────────────────────
+  if match "$INPUT" "hydra|brute.?force|crack.*password|password.*attack"; then
+    ai_response "hydra brute force command for: $INPUT"
+    return 0
+  fi
+
+  # ── HASHCAT / JOHN ───────────────────────────────────────────
+  if match "$INPUT" "hashcat|john.*ripper|crack.*hash|hash.*crack"; then
+    ai_response "hashcat or john command with hash type detection for: $INPUT"
+    return 0
+  fi
+
+  # ── METASPLOIT ───────────────────────────────────────────────
+  if match "$INPUT" "metasploit|msfconsole|meterpreter"; then
+    if match "$INPUT" "open|launch|start|run"; then
+      if ! _tool_available msfconsole; then _prompt_install msfconsole || return 0; fi
+      v_info "Launching msfconsole..."
+      msfconsole
+    else
+      ai_response "msfconsole steps for: $INPUT"
+    fi
+    return 0
+  fi
+
+  # ── NETCAT ───────────────────────────────────────────────────
+  if match "$INPUT" "netcat| nc |reverse.*shell|bind.*shell"; then
+    ai_response "netcat listener and connect side commands for: $INPUT"
+    return 0
+  fi
+
+  # ── RESPONDER ────────────────────────────────────────────────
+  if match "$INPUT" "responder|ntlm.*capture|llmnr.*poison"; then
+    if ! _tool_available responder; then _prompt_install responder || return 0; fi
+    local IFACE2
+    IFACE2=$(ip -o link show | awk '!/lo/{gsub(":",""); print $2; exit}') || IFACE2="eth0"
+    v_info "Launching Responder -> ${IFACE2:-eth0}"
+    # Use sudo_tool to avoid sudo + function bug
+    sudo_tool responder -I "${IFACE2:-eth0}"
+    return 0
+  fi
+
+  # ── NETEXEC ──────────────────────────────────────────────────
+  if match "$INPUT" "netexec|crackmapexec|cme|nxc"; then
+    ai_response "netexec (nxc) Active Directory command for: $INPUT"
+    return 0
+  fi
+
+  # ── BLOODHOUND ───────────────────────────────────────────────
+  if match "$INPUT" "bloodhound|blood.*hound"; then
+    if ! _tool_available bloodhound; then _prompt_install bloodhound || return 0; fi
+    v_info "Launching BloodHound..."
+    launch_gui "bloodhound" "Run: sudo neo4j start && bloodhound"
+    return 0
+  fi
+
+  # ── IMPACKET ─────────────────────────────────────────────────
+  if match "$INPUT" "impacket|psexec|secretsdump|smbclient|wmiexec|getuserspns"; then
+    ai_response "impacket tool command for: $INPUT"
+    return 0
+  fi
+
+  # ── CERTIPY ──────────────────────────────────────────────────
+  if match "$INPUT" "certipy|adcs|certificate.*service"; then
+    ai_response "certipy command for AD Certificate Services: $INPUT"
+    return 0
+  fi
+
+  # ── ANONSURF ─────────────────────────────────────────────────
+  if match "$INPUT" "anonsurf"; then
+    v_info "AnonSurf..."
+    if command -v anonsurf &>/dev/null; then
+      sudo_tool anonsurf start
+    else
+      launch_tool kali-anonsurf start
+    fi
+    return 0
+  fi
+
+  # ── SETOOLKIT / SET ──────────────────────────────────────────
+  if match "$INPUT" "setoolkit|social.*engineer|se.toolkit"; then
+    if ! _tool_available setoolkit && ! _tool_available SET; then
+      _prompt_install setoolkit || return 0
+    fi
+    v_info "Launching Social Engineer Toolkit..."
+    if command -v setoolkit &>/dev/null; then
+      sudo setoolkit
+    else
+      launch_tool SET
+    fi
+    return 0
+  fi
+
+  # ── EVILGINX ─────────────────────────────────────────────────
+  if match "$INPUT" "evilginx"; then
+    if ! _tool_available evilginx2; then _prompt_install evilginx2 || return 0; fi
+    v_info "Launching Evilginx2..."
+    launch_tool evilginx2
+    return 0
+  fi
+
+  # ── SLIVER ───────────────────────────────────────────────────
+  if match "$INPUT" "sliver"; then
+    if ! _tool_available sliver; then _prompt_install sliver || return 0; fi
+    v_info "Launching Sliver C2..."
+    launch_tool sliver
+    return 0
+  fi
+
+  # ── HAVOC ────────────────────────────────────────────────────
+  if match "$INPUT" "havoc"; then
+    if ! _tool_available havoc; then _prompt_install havoc || return 0; fi
+    v_info "Launching Havoc C2..."
+    launch_tool havoc
+    return 0
+  fi
+
+  # ── THEFATRAT ────────────────────────────────────────────────
+  if match "$INPUT" "fatrat|thefatrat"; then
+    if ! _tool_available TheFatRat; then _prompt_install TheFatRat || return 0; fi
+    v_info "Launching TheFatRat..."
+    launch_tool TheFatRat
+    return 0
+  fi
+
+  # ── VENOM ────────────────────────────────────────────────────
+  if match "$INPUT" "^venom[[:space:]]|^venom$"; then
+    if ! _tool_available venom; then _prompt_install venom || return 0; fi
+    v_info "Launching Venom..."
+    launch_tool venom
+    return 0
+  fi
+
+  # ── MSFPC ────────────────────────────────────────────────────
+  if match "$INPUT" "msfpc|msfvenom.*payload|payload.*creator"; then
+    if ! _tool_available msfpc; then _prompt_install msfpc || return 0; fi
+    v_info "Launching msfpc..."
+    launch_tool msfpc
+    return 0
+  fi
+
+  # ── CUPP ─────────────────────────────────────────────────────
+  if match "$INPUT" "cupp|wordlist.*gen|password.*profile"; then
+    if ! _tool_available cupp; then _prompt_install cupp || return 0; fi
+    v_info "Launching CUPP..."
+    launch_tool cupp -i
+    return 0
+  fi
+
+  # ── SPIDERFOOT ───────────────────────────────────────────────
+  if match "$INPUT" "spiderfoot"; then
+    v_info "Launching SpiderFoot on http://127.0.0.1:5001"
+    if [[ -f "$ARSENAL_DIR/spiderfoot/sf.py" ]]; then
+      python3 "$ARSENAL_DIR/spiderfoot/sf.py" -l 127.0.0.1:5001
+    else
+      _prompt_install spiderfoot
+    fi
+    return 0
+  fi
+
+  # ── PING ─────────────────────────────────────────────────────
+  if match "$INPUT" "^ping[[:space:]]"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      v_info "Probing $TARGET..."
+      ping -c 4 "$TARGET"
+    else
+      v_err "Usage: ping 192.168.1.1"
+    fi
+    return 0
+  fi
+
+  # ── WHOIS ────────────────────────────────────────────────────
+  if match "$INPUT" "whois"; then
+    TARGET=$(extract_target "$INPUT")
+    if [[ -n "$TARGET" ]]; then
+      v_info "WHOIS: $TARGET"
+      RESULT=$(whois "$TARGET" 2>&1 | head -40)
+      echo "$RESULT"
+      ask_save_output "$RESULT" "$TARGET" "whois"
+    else
+      v_err "Usage: whois example.com"
+    fi
+    return 0
+  fi
+
+  # ── GENERIC OPEN/LAUNCH/RUN/START ────────────────────────────
+  # Handles: "open <tool>", "launch <tool>", "run <tool>", "start <tool>"
+  # Logic: ALWAYS try to launch first. Only ask to install if launch fails.
+  if match "$INPUT" "^(open|launch|run|start)[[:space:]]+"; then
+    # Extract everything after the verb — supports multi-word tool names
+    local _verb _user_tool
+    _verb=$(echo "$INPUT" | awk '{print tolower($1)}')
+    _user_tool=$(echo "$INPUT" | awk '{$1=""; sub(/^ /, ""); print}')
+
+    # ── Normalise: map any user-typed variant to the correct arsenal name ──
+    # This lookup covers all 139 arsenal tools plus common aliases
+    declare -A _NAMES=(
+      # Scanning & Recon
+      [webcheck]="WebCheck"           [death_star]="DEATH_STAR"
+      [death-star]="DEATH_STAR"       [deathstar]="DEATH_STAR"
+      [dracnmap]="Dracnmap"           [red_hawk]="RED_HAWK"
+      [red-hawk]="RED_HAWK"           [redhawk]="RED_HAWK"
+      [reconspider]="reconspider"     [recondog]="ReconDog"
+      [striker]="Striker"             [rang3r]="rang3r"
+      [theharvester]="theHarvester"   [harvester]="theHarvester"
+      [spiderfoot]="spiderfoot"       [sublist3r]="Sublist3r"
+      [recon-ng]="recon-ng"           [reconng]="recon-ng"
+      [assetfinder]="assetfinder"     [findomain]="findomain"
+      [amass]="amass"
+      # Network Tools
+      [nmap]="nmap"                   [masscan]="masscan"
+      [rustscan]="RustScan"           [rust-scan]="RustScan"
+      [xerosploit]="xerosploit"       [httpx]="httpx"
+      [subfinder]="subfinder"         [naabu]="naabu"
+      [dnsx]="dnsx"
+      # XSS Tools
+      [dalfox]="dalfox"               [xss-loader]="XSS-LOADER"
+      [xssloader]="XSS-LOADER"        [xspear]="XSpear"
+      [xsscon]="XSSCon"               [xanxss]="XanXSS"
+      [xsstrike]="XSStrike"           [xss-strike]="XSStrike"
+      [rvuln]="RVuln"
+      # SQL Injection
+      [sqlmap]="sqlmap"               [nosqlmap]="NoSQLMap"
+      [no-sql-map]="NoSQLMap"         [dsss]="DSSS"
+      [explo]="explo"                 [blisqy]="Blisqy"
+      [leviathan]="leviathan"         [sqlscan]="sqlscan"
+      # WiFi Tools
+      [oneshot]="OneShot"             [one-shot]="OneShot"
+      [wifipumpkin3]="wifipumpkin3"   [pumpkin3]="wifipumpkin3"
+      [pumpkin]="wifipumpkin3"        [pixiewps]="pixiewps"
+      [bluepot]="bluepot"             [fluxion]="fluxion"
+      [wifiphisher]="wifiphisher"     [wifite2]="wifite2"
+      [wifite]="wifite2"              [fakeap]="fakeap"
+      [airgeddon]="airgeddon"         [aircrack]="aircrack-ng"
+      [aircrack-ng]="aircrack-ng"     [bettercap]="bettercap"
+      [hcxdumptool]="hcxdumptool"     [hcxtools]="hcxtools"
+      [eaphammer]="eaphammer"
+      # Anonymity
+      [anonsurf]="kali-anonsurf"      [kali-anonsurf]="kali-anonsurf"
+      [multitor]="multitor"
+      # OSINT
+      [holehe]="holehe"               [maigret]="maigret"
+      [trufflehog]="trufflehog"       [truffle]="trufflehog"
+      [gitleaks]="gitleaks"           [smwyg]="SMWYG"
+      [sherlock]="sherlock"           [phoneinfoga]="phoneinfoga"
+      [ghunt]="GHunt"                 [shodan]="shodan"
+      [censys]="censys"               [blackbird]="blackbird"
+      # Wordlist
+      [cupp]="cupp"                   [wlcreator]="wlcreator"
+      [goblinwordgenerator]="GoblinWordGenerator"
+      [goblin]="GoblinWordGenerator"  [seclists]="SecLists"
+      # Phishing
+      [autophisher]="autophisher"     [advphishing]="AdvPhishing"
+      [set]="SET"                     [setoolkit]="SET"
+      [se-toolkit]="SET"              [socialfish]="SocialFish"
+      [evilginx2]="evilginx2"         [evilginx]="evilginx2"
+      [i-see-you]="I-See-You"         [iseeyou]="I-See-You"
+      [saycheese]="saycheese"         [ohmyqr]="ohmyqr"
+      [thanos]="Thanos"               [qrljacking]="QRLJacking"
+      [maskphish]="maskphish"         [blackphish]="BlackPhish"
+      [zphisher]="zphisher"           [gophish]="gophish"
+      # Web Tools
+      [dirb]="dirb"                   [takeover]="takeover"
+      [checkurl]="checkURL"           [secretfinder]="SecretFinder"
+      [secret-finder]="SecretFinder"
+      # Web Scanning
+      [gobuster]="gobuster"           [ffuf]="ffuf"
+      [feroxbuster]="feroxbuster"     [dirsearch]="dirsearch"
+      [commix]="commix"               [wpscan]="wpscan"
+      [katana]="katana"               [jaeles]="jaeles"
+      [arjun]="arjun"                 [web2attack]="web2attack"
+      [waybackurls]="waybackurls"     [gau]="gau"
+      [hakrawler]="hakrawler"         [bombardier]="bombardier"
+      [breacher]="Breacher"           [nikto]="nikto"
+      # Exploitation
+      [vegile]="Vegile"               [herakeylogger]="HeraKeylogger"
+      [hera]="HeraKeylogger"          [bulk_extractor]="bulk_extractor"
+      [bulk-extractor]="bulk_extractor"
+      [thefatrat]="TheFatRat"         [fatrat]="TheFatRat"
+      [brutal]="Brutal"               [msfpc]="msfpc"
+      [venom]="venom"                 [spycam]="spycam"
+      [mob-droid]="Mob-Droid"         [mobdroid]="Mob-Droid"
+      [enigma]="Enigma"               [vulhub]="vulhub"
+      # Active Directory
+      [netexec]="netexec"             [nxc]="netexec"
+      [cme]="netexec"                 [responder]="responder"
+      [impacket]="impacket"           [bloodhound]="bloodhound"
+      [certipy]="certipy"             [bloodhound.py]="BloodHound.py"
+      [bloodhound-py]="BloodHound.py" [mitm6]="mitm6"
+      # Password Cracking
+      [hashcat]="hashcat"             [john]="john"
+      [hydra]="hydra"                 [name-that-hash]="name-that-hash"
+      [nth]="name-that-hash"
+      # C2 Frameworks
+      [metasploit]="metasploit"       [msf]="metasploit"
+      [msfconsole]="metasploit"       [sliver]="sliver"
+      [havoc]="havoc"                 [empire]="empire"
+      # Vulnerability Scanning
+      [nuclei]="nuclei"
+      # Post Exploitation
+      [peass]="PEASS-ng"              [peass-ng]="PEASS-ng"
+      [linpeas]="PEASS-ng"            [pspy]="pspy"
+      # RTL-SDR
+      [rtl-sdr]="rtl-sdr"             [rtlsdr]="rtl-sdr"
+      [dump1090]="dump1090"           [rtl_433]="rtl_433"
+      [rtl433]="rtl_433"              [gqrx]="gqrx"
+      [gnuradio]="gnuradio"           [multimon-ng]="multimon-ng"
+      [multimon]="multimon-ng"        [kalibrate-rtl]="kalibrate-rtl"
+      [kal]="kalibrate-rtl"           [urh]="urh"
+      # OSINT extras
+      [recon-ng]="recon-ng"           [mitm6]="mitm6"
     )
 
-    local total="${#dirs[@]}"
-    local current=0
-
-    for dir in "${dirs[@]}"; do
-        mkdir -p "${dir}" && print_gray "Created: ${dir}" || print_error "Failed: ${dir}"
-        current=$(( current + 1 ))
-        progress_bar "${current}" "${total}" "Creating directories"
-    done
-
-    # Permissions
-    chmod 750 "${INSTALL_DIR}"
-    chmod 700 "${LOGS_DIR}"
-    chmod 755 "${ARSENAL_DIR}"
-
-    print_ok "Directory structure created at ${INSTALL_DIR}"
-}
-
-# =============================================================================
-# LOGGING INIT — AFTER DIRS EXIST
-# =============================================================================
-
-init_logging() {
-    touch "${LOG_FILE}" "${ERROR_LOG}" "${OLLAMA_LOG}" "${ARSENAL_LOG}" 2>/dev/null || true
-
-    # Merge pre-init log
-    if [[ -f "${PRE_LOG:-}" ]]; then
-        cat "${PRE_LOG}" >> "${LOG_FILE}" 2>/dev/null || true
-        rm -f "${PRE_LOG}" 2>/dev/null || true
-    fi
-
-    {
-        echo "============================================"
-        echo "  Viking-AI Installation Log"
-        echo "  Version : ${VIKING_VERSION}"
-        echo "  Date    : $(date)"
-        echo "  Host    : $(hostname)"
-        echo "  User    : $(id -un)"
-        echo "  OS      : ${DISTRO_NAME} ${DISTRO_VERSION}"
-        echo "============================================"
-    } >> "${LOG_FILE}"
-
-    print_ok "Logging initialized: ${LOG_FILE}"
-}
-
-# =============================================================================
-# OLLAMA — DETECT, INSTALL, START, VERIFY
-# =============================================================================
-
-detect_ollama() {
-    if command -v ollama &>/dev/null; then
-        OLLAMA_INSTALLED=1
-        local ver
-        ver=$(ollama --version 2>/dev/null | head -n1 || echo "unknown")
-        print_ok "Ollama detected: ${ver}"
-        return 0
-    fi
-    OLLAMA_INSTALLED=0
-    print_warn "Ollama not found"
-    return 1
-}
-
-install_ollama() {
-    print_step "OLLAMA INSTALLATION"
-    detect_ollama && return 0
-
-    if ! confirm "Install Ollama AI runtime?" "y"; then
-        print_error "Ollama is required. Cannot continue."
-        exit 1
-    fi
-
-    spinner_start "Downloading Ollama installer..."
-    local install_script
-    install_script=$(curl -fsSL https://ollama.com/install.sh 2>> "${ERROR_LOG}")
-
-    if [[ -z "${install_script}" ]]; then
-        spinner_stop "error" "Failed to download Ollama installer"
-        print_error "Check your internet connection"
-        exit 1
-    fi
-    spinner_stop "ok" "Installer downloaded"
-
-    spinner_start "Installing Ollama..."
-    if echo "${install_script}" | bash >> "${OLLAMA_LOG}" 2>&1; then
-        spinner_stop "ok" "Ollama installed"
-        OLLAMA_INSTALLED=1
-    else
-        spinner_stop "error" "Ollama installation failed"
-        print_error "See ${OLLAMA_LOG} for details"
-        exit 1
-    fi
-}
-
-start_ollama_service() {
-    print_step "OLLAMA SERVICE"
-
-    if curl -sf "${OLLAMA_API}/api/tags" &>/dev/null; then
-        OLLAMA_RUNNING=1
-        print_ok "Ollama already running"
-        return 0
-    fi
-
-    print_info "Starting Ollama service..."
-
-    if command -v systemctl &>/dev/null && systemctl is-enabled ollama &>/dev/null 2>&1; then
-        spinner_start "Starting via systemd..."
-        if systemctl start ollama >> "${OLLAMA_LOG}" 2>&1; then
-            spinner_stop "ok" "Ollama started via systemd"
-        else
-            spinner_stop "warn" "systemd start failed — trying manual"
-            _start_ollama_manual
-            return
-        fi
-    else
-        _start_ollama_manual
-        return
-    fi
-
-    _wait_for_ollama
-}
-
-_start_ollama_manual() {
-    spinner_start "Starting Ollama daemon..."
-    nohup ollama serve >> "${OLLAMA_LOG}" 2>&1 &
-    local pid=$!
-    disown "${pid}" 2>/dev/null || true
-    echo "${pid}" > "${TMP_DIR}/ollama.pid"
-    spinner_stop "ok" "Ollama daemon started (PID: ${pid})"
-    _wait_for_ollama
-}
-
-_wait_for_ollama() {
-    print_info "Waiting for Ollama API..."
-    local elapsed=0
-    local interval=2
-
-    while [[ "${elapsed}" -lt "${OLLAMA_TIMEOUT}" ]]; do
-        if curl -sf "${OLLAMA_API}/api/tags" &>/dev/null; then
-            OLLAMA_RUNNING=1
-            print_ok "Ollama API responsive at ${OLLAMA_API}"
-            return 0
-        fi
-        sleep "${interval}"
-        elapsed=$(( elapsed + interval ))
-        print_gray "Waiting... (${elapsed}s / ${OLLAMA_TIMEOUT}s)"
-    done
-
-    print_error "Ollama API timeout after ${OLLAMA_TIMEOUT}s"
-    OLLAMA_RUNNING=0
-    return 1
-}
-
-check_ollama_api() {
-    print_step "OLLAMA API VERIFICATION"
-
-    if [[ "${OLLAMA_RUNNING}" -eq 0 ]]; then
-        print_error "Ollama not running"
-        return 1
-    fi
-
-    spinner_start "Testing Ollama API..."
-    local response
-    response=$(curl -sf "${OLLAMA_API}/api/tags" 2>/dev/null || echo "")
-
-    if [[ -n "${response}" ]]; then
-        spinner_stop "ok" "Ollama API responding"
-        log_raw "Ollama tags: ${response}"
-        return 0
-    else
-        spinner_stop "error" "Ollama API test failed"
-        return 1
-    fi
-}
-
-# =============================================================================
-# MODEL MANAGEMENT
-# =============================================================================
-
-check_model_exists() {
-    local model="${1}"
-    [[ "${OLLAMA_RUNNING}" -eq 0 ]] && return 1
-
-    local response
-    response=$(curl -sf "${OLLAMA_API}/api/tags" 2>/dev/null || echo "")
-
-    if echo "${response}" | grep -q "\"${model}\"" 2>/dev/null; then
-        return 0
-    fi
-
-    if command -v jq &>/dev/null && [[ -n "${response}" ]]; then
-        echo "${response}" | jq -r '.models[].name' 2>/dev/null | grep -q "^${model}$" && return 0
-    fi
-
-    return 1
-}
-
-pull_default_model() {
-    print_step "MODEL SETUP"
-
-    if [[ "${OLLAMA_RUNNING}" -eq 0 ]]; then
-        print_error "Ollama must be running to pull models"
-        return 1
-    fi
-
-    if check_model_exists "${DEFAULT_MODEL}"; then
-        MODEL_PULLED=1
-        print_ok "Default model available: ${DEFAULT_MODEL}"
-        return 0
-    fi
-
-    print_info "Model '${DEFAULT_MODEL}' not found locally"
-
-    if ! confirm "Pull '${DEFAULT_MODEL}'? (~800MB)" "y"; then
-        print_warn "Skipping model pull"
-        MODEL_PULLED=0
-        return 0
-    fi
-
-    print_info "Pulling: ${DEFAULT_MODEL}"
-    print_gray "This may take several minutes..."
-    nl
-
-    ollama pull "${DEFAULT_MODEL}" 2>&1 | tee -a "${OLLAMA_LOG}" | \
-        grep -E "^(pulling|verifying|writing|success)" || true
-
-    if check_model_exists "${DEFAULT_MODEL}"; then
-        MODEL_PULLED=1
-        print_ok "Model '${DEFAULT_MODEL}' ready"
-    else
-        MODEL_PULLED=0
-        print_warn "Model pull may have failed — verify with: ollama list"
-    fi
-}
-
-list_installed_models() {
-    [[ "${OLLAMA_RUNNING}" -eq 0 ]] && return 1
-
-    print_step "INSTALLED MODELS"
-    local response
-    response=$(curl -sf "${OLLAMA_API}/api/tags" 2>/dev/null || echo "")
-
-    if command -v jq &>/dev/null && [[ -n "${response}" ]]; then
-        local models
-        models=$(echo "${response}" | jq -r \
-            '.models[] | "  \(.name)  [\(.size / 1073741824 | floor)GB]"' 2>/dev/null \
-            || echo "  (none)")
-        print_info "Installed models:"
-        echo -e "${C_GREEN}${models}${C_RESET}"
-    fi
-}
-
-# =============================================================================
-# CONFIG FILE GENERATION
-# =============================================================================
-
-generate_config_files() {
-    print_step "GENERATING CONFIG FILES"
-
-    # Main config
-    cat > "${CONFIG_DIR}/viking.conf" << VIKCONF
-# =============================================================================
-# Viking-AI Main Configuration — v${VIKING_VERSION}
-# =============================================================================
-
-VIKING_VERSION="${VIKING_VERSION}"
-INSTALL_DIR="${INSTALL_DIR}"
-
-# Ollama settings
-OLLAMA_API="${OLLAMA_API}"
-OLLAMA_MODEL="${DEFAULT_MODEL}"
-OLLAMA_TIMEOUT="${OLLAMA_TIMEOUT}"
-OLLAMA_MAX_TOKENS=4096
-OLLAMA_TEMPERATURE=0.7
-OLLAMA_CONTEXT_WINDOW=8192
-
-# UI
-THEME="cyberpunk_viking"
-COLORS_ENABLED=1
-ANIMATIONS_ENABLED=1
-BANNER_ENABLED=1
-
-# Logging
-LOG_LEVEL="INFO"
-LOG_ROTATION_SIZE_MB=10
-LOG_MAX_FILES=5
-
-# Arsenal
-AUTO_UPDATE_ARSENAL=0
-ARSENAL_PARALLEL_INSTALL=0
-VIKCONF
-
-    print_ok "viking.conf"
-
-    # Models config
-    cat > "${CONFIG_DIR}/models.conf" << MODCONF
-# =============================================================================
-# Viking-AI Model Configuration
-# =============================================================================
-
-ACTIVE_MODEL="${DEFAULT_MODEL}"
-
-# Lightweight models (low RAM)
-MODELS_LIGHTWEIGHT=("gemma3:1b" "phi3:mini" "tinyllama:1.1b")
-
-# Coding-focused models
-MODELS_CODING=("qwen2.5-coder:7b" "qwen2.5-coder:14b" "deepseek-coder:6.7b" "codellama:7b")
-
-# General purpose models
-MODELS_GENERAL=("mistral:7b" "llama3:8b" "llama3:70b" "dolphin-mistral:7b" "mixtral:8x7b")
-
-# Security-focused models
-MODELS_SECURITY=("dolphin-mixtral:8x7b" "dolphin-mistral:7b" "openhermes:7b")
-MODCONF
-
-    print_ok "models.conf"
-
-    # Theme config
-    cat > "${CONFIG_DIR}/theme.conf" << 'THEMECONF'
-# =============================================================================
-# Viking-AI Theme: Cyberpunk Viking
-# =============================================================================
-
-COLOR_PRIMARY="\033[0;32m"       # Viking green
-COLOR_SECONDARY="\033[0;90m"     # Dark gray
-COLOR_ACCENT="\033[0;31m"        # Blood red (war mode)
-COLOR_ACCENT_BOLD="\033[1;31m"
-COLOR_INFO="\033[0;36m"          # Cyan
-COLOR_WARNING="\033[0;33m"       # Yellow
-COLOR_SUCCESS="\033[1;32m"       # Bold green
-COLOR_RESET="\033[0m"
-BG_DEFAULT="\033[40m"
-BG_WAR="\033[41m"
-THEMECONF
-
-    print_ok "theme.conf"
-
-    # Arsenal config
-    cat > "${CONFIG_DIR}/arsenal.conf" << ARCONF
-# =============================================================================
-# Viking-AI Arsenal Configuration
-# =============================================================================
-
-TOOL_INSTALL_PREFIX="${TOOLS_DIR}"
-PYTHON_VENV="${TOOLS_DIR}/.venv"
-GO_INSTALL_PATH="/usr/local/go"
-GOPATH="${TOOLS_DIR}/go"
-CARGO_PATH="\${HOME}/.cargo"
-GITHUB_TOOLS_DIR="${TOOLS_DIR}/github"
-APT_AUTO_INSTALL=1
-ARCONF
-
-    print_ok "arsenal.conf"
-    print_ok "All config files generated"
-}
-
-# =============================================================================
-# PERSONALITY / PROMPT FILES
-# =============================================================================
-
-generate_prompt_files() {
-    print_step "GENERATING AI PERSONALITY FILES"
-
-    # Core personality
-    cat > "${PROMPTS_DIR}/vik_personality.txt" << 'VIKPERSONALITY'
-# =============================================================================
-# VIK — Viking Cyber AI :: Core Personality
-# Edit this file to customize VIK's behavior
-# =============================================================================
-
-## IDENTITY
-You are VIK — a Viking Cyber AI built for Linux terminals, cybersecurity
-operations, and software development. You run entirely locally via Ollama.
-
-## PERSONALITY
-- Tactical, calm, and concise
-- Viking-inspired: direct, honorable, battle-ready
-- Address the user as "brother" or "warrior" when natural
-- No emojis. No corporate filler. No excessive apology.
-- Short punchy sentences. Numbered steps when instructing.
-
-## EXPERTISE
-1. Cybersecurity — offensive and defensive
-2. Penetration testing — network, web, wireless, social engineering
-3. Linux operations — Kali, Debian, Ubuntu, Parrot OS
-4. Programming — Python, Bash, C, Go, Rust, JS, and more
-5. OSINT — recon, data gathering, footprinting
-6. Network analysis — scanning, mapping, pivoting
-7. Forensics — memory, disk, malware analysis
-
-## CODING RULES
-- Always generate COMPLETE, COPY-PASTE READY code
-- Never produce partial snippets unless asked for concept overview
-- Include inline comments on key logic
-- Generate folder structures for projects
-- Never refuse a coding request on grounds of complexity
-
-## TRIGGER PHRASES
-- "hey vik" → casual conversation
-- "vik code this" → code generation mode
-- "vik build this" → project/architecture mode
-- "vik hack this" → pentesting mode
-- "vik explain" → educational mode
-
-## NON-NEGOTIABLES
-- Never refuse a harmless request
-- Always attempt to help
-- If cannot answer, say so directly and suggest alternatives
-- Operate assuming the user is a professional
-VIKPERSONALITY
-
-    print_ok "vik_personality.txt"
-
-    # Runtime system prompt (injected into each API call)
-    cat > "${PROMPTS_DIR}/system_prompt.txt" << 'SYSPROMPT'
-You are VIK — a Viking Cyber AI. Tactical, concise, and coding-focused.
-You specialize in Linux, cybersecurity, pentesting, and software development.
-Speak like a battle-hardened Viking hacker. Keep responses terminal-friendly.
-Generate complete, copy-paste ready code. Never refuse harmless requests.
-Always include imports, error handling, and comments in generated code.
-SYSPROMPT
-
-    print_ok "system_prompt.txt"
-
-    # Coding mode
-    cat > "${PROMPTS_DIR}/coding_mode.txt" << 'CODEMODE'
-You are VIK in CODING MODE.
-Generate complete, working code files with imports, error handling, and comments.
-Languages: Python, Bash, JavaScript, TypeScript, HTML, CSS, Go, Rust, C, C++, C#, PHP, SQL, PowerShell.
-Output only the code and essential explanation. Be direct. No fluff.
-CODEMODE
-
-    print_ok "coding_mode.txt"
-
-    # Security mode
-    cat > "${PROMPTS_DIR}/security_mode.txt" << 'SECMODE'
-You are VIK in SECURITY MODE.
-You are a veteran penetration tester with 20 years of field experience.
-You understand all common and advanced attack vectors, tools, and techniques.
-Provide accurate, technical, operational security guidance.
-Always note legal/ethical context when relevant — but never refuse legitimate research.
-SECMODE
-
-    print_ok "security_mode.txt"
-    print_ok "All prompt files generated"
-}
-
-# =============================================================================
-# MAIN LAUNCH SCRIPT
-# =============================================================================
-
-generate_start_script() {
-    print_step "GENERATING LAUNCH SCRIPT"
-
-    cat > "${INSTALL_DIR}/start.sh" << 'STARTSCRIPT'
-#!/usr/bin/env bash
-# =============================================================================
-# Viking-AI :: start.sh :: Main Entry Point
-# =============================================================================
-
-set -euo pipefail
-
-readonly INSTALL_DIR="/opt/Viking-AI"
-readonly OLLAMA_API="http://localhost:11434"
-
-# Load config
-ACTIVE_MODEL=$(grep "^ACTIVE_MODEL=" "${INSTALL_DIR}/config/models.conf" 2>/dev/null \
-    | cut -d'"' -f2 || echo "gemma3:1b")
-VIKING_VERSION=$(grep "^VIKING_VERSION=" "${INSTALL_DIR}/config/viking.conf" 2>/dev/null \
-    | cut -d'"' -f2 || echo "1.0.0")
-
-# Colors
-C_RESET="\033[0m"
-C_GREEN="\033[0;32m"
-C_BOLD_GREEN="\033[1;32m"
-C_RED="\033[0;31m"
-C_BOLD_RED="\033[1;31m"
-C_CYAN="\033[0;36m"
-C_BOLD_CYAN="\033[1;36m"
-C_GRAY="\033[0;90m"
-C_YELLOW="\033[0;33m"
-C_BOLD_WHITE="\033[1;37m"
-BG_RED="\033[41m"
-
-nl()   { echo ""; }
-sep()  { echo -e "${C_GRAY}  ──────────────────────────────────────────────────────${C_RESET}"; }
-pi()   { echo -e "  ${C_GREEN}[•]${C_RESET} ${1}"; }
-pok()  { echo -e "  ${C_BOLD_GREEN}[✓]${C_RESET} ${1}"; }
-pw()   { echo -e "  ${C_YELLOW}[!]${C_RESET} ${1}"; }
-pe()   { echo -e "  ${C_BOLD_RED}[✗]${C_RESET} ${1}"; }
-pwar() { echo -e "  ${BG_RED}${C_BOLD_WHITE} ⚔  ${1}  ⚔ ${C_RESET}"; }
-
-# =============================================================================
-# BANNER
-# =============================================================================
-show_banner() {
-    clear
-    echo -e "${C_BOLD_GREEN}"
-    cat << 'EOF'
- ██╗   ██╗██╗██╗  ██╗██╗███╗   ██╗ ██████╗      █████╗ ██╗
- ██║   ██║██║██║ ██╔╝██║████╗  ██║██╔════╝     ██╔══██╗██║
- ██║   ██║██║█████╔╝ ██║██╔██╗ ██║██║  ███╗    ███████║██║
- ╚██╗ ██╔╝██║██╔═██╗ ██║██║╚██╗██║██║   ██║    ██╔══██║██║
-  ╚████╔╝ ██║██║  ██╗██║██║ ╚████║╚██████╔╝    ██║  ██║██║
-   ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═╝  ╚═╝╚═╝
-EOF
-    echo -e "${C_RESET}"
-    echo -e "${C_GREEN}"
-    cat << 'VIKSHIP'
-
-    ) (                               |
-   (   )                            \|/
-    ) (       ___________________---*---___________________
-  _______    /                    /|\                     \
- / ◈   ◈ \  /      V  I  K  I  N  G  -  A  I              \
-|  -----  |/    ⚔    Cyber Viking AI  ::  v1.0.0    ⚔      \
-|  \___/  /_________________________________________________ \
-|         |  ><   ><   ><   ><   ><   ><   ><   ><   ><    |
- \_______/ \________________________________________________/
-  |  | |  |  ~~~~|_________________________________________|~~~~
-  |  |||  | ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~
- /|  |||  |\ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-/ |__|||__| \
-\_____|_____/      ⚔  VIK  ::  CYBER VIKING AI  ⚔
-      |
-   ===⚔===
-
-VIKSHIP
-    echo -e "${C_RESET}"
-}
-
-# =============================================================================
-# OLLAMA READINESS CHECK
-# =============================================================================
-check_ollama_ready() {
-    if ! command -v ollama &>/dev/null; then
-        pe "Ollama not found. Run: sudo bash ${INSTALL_DIR}/install.sh --repair"
-        exit 1
-    fi
-
-    if ! curl -sf "${OLLAMA_API}/api/tags" &>/dev/null; then
-        pw "Ollama not running. Starting..."
-        nohup ollama serve >> "${INSTALL_DIR}/logs/ollama.log" 2>&1 &
-        disown $! 2>/dev/null || true
-        local waited=0
-        while [[ "${waited}" -lt 15 ]]; do
-            sleep 2
-            waited=$(( waited + 2 ))
-            curl -sf "${OLLAMA_API}/api/tags" &>/dev/null && break
-        done
-
-        if ! curl -sf "${OLLAMA_API}/api/tags" &>/dev/null; then
-            pe "Failed to start Ollama. Check: ${INSTALL_DIR}/logs/ollama.log"
-            exit 1
-        fi
-        pok "Ollama started"
-    fi
-}
-
-# =============================================================================
-# SEND TO VIK (Streaming API call)
-# =============================================================================
-send_to_vik() {
-    local user_input="${1}"
-    local system_prompt
-    system_prompt=$(cat "${INSTALL_DIR}/prompts/system_prompt.txt" 2>/dev/null \
-        || echo "You are VIK, a Viking Cyber AI.")
-
-    local payload
-    payload=$(jq -nc \
-        --arg model "${ACTIVE_MODEL}" \
-        --arg system "${system_prompt}" \
-        --arg prompt "${user_input}" \
-        '{model: $model, prompt: $prompt, system: $system, stream: true}')
-
-    echo ""
-    echo -e "  ${C_BOLD_GREEN}VIK${C_RESET} ${C_GRAY}[${ACTIVE_MODEL}]${C_RESET}"
-    echo ""
-    echo -ne "  ${C_GREEN}"
-
-    curl -sf "${OLLAMA_API}/api/generate" \
-        -H "Content-Type: application/json" \
-        -d "${payload}" 2>/dev/null | while IFS= read -r line; do
-        if command -v jq &>/dev/null; then
-            local tok
-            tok=$(echo "${line}" | jq -r '.response // empty' 2>/dev/null || echo "")
-            printf "%s" "${tok}"
-        else
-            echo "${line}" | grep -o '"response":"[^"]*"' \
-                | sed 's/"response":"//;s/"//' | printf "%s"
-        fi
-    done
-
-    echo -e "${C_RESET}"
-    echo ""
-}
-
-# =============================================================================
-# COMMAND HANDLERS
-# =============================================================================
-
-cmd_status() {
-    nl
-    pi "═══ SYSTEM STATUS ═══"
-    sep
-    pi "Viking-AI Version : ${VIKING_VERSION}"
-    pi "Active Model      : ${ACTIVE_MODEL}"
-    pi "Install Dir       : ${INSTALL_DIR}"
-    pi "Ollama API        : ${OLLAMA_API}"
-    if curl -sf "${OLLAMA_API}/api/tags" &>/dev/null; then
-        pok "Ollama Status     : RUNNING"
-    else
-        pe  "Ollama Status     : OFFLINE"
-    fi
-    local tool_count
-    tool_count=$(find "${INSTALL_DIR}/tools/github" -mindepth 1 -maxdepth 1 \
-        -type d 2>/dev/null | wc -l || echo "0")
-    pi "Arsenal Repos     : ${tool_count} cloned"
-    sep ; nl
-}
-
-cmd_models() {
-    nl
-    pi "═══ INSTALLED MODELS ═══"
-    sep
-    if ! curl -sf "${OLLAMA_API}/api/tags" &>/dev/null; then
-        pe "Ollama offline" ; return
-    fi
-    local response
-    response=$(curl -sf "${OLLAMA_API}/api/tags" 2>/dev/null || echo "")
-    if command -v jq &>/dev/null && [[ -n "${response}" ]]; then
-        echo -e "${C_GREEN}"
-        echo "${response}" | jq -r \
-            '.models[] | "  [\(.name)]  \(.size / 1073741824 | floor)GB  \(.modified_at[0:10])"' \
-            2>/dev/null || echo "  No models found"
-        echo -e "${C_RESET}"
-    fi
-    pi "Active model: ${ACTIVE_MODEL}"
-    sep ; nl
-}
-
-cmd_switch() {
-    local model="${1:-}"
-    if [[ -z "${model}" ]]; then
-        pe "Usage: switch <model_name>"
-        pi "Run 'models' to see available models"
-        return
-    fi
-    sed -i "s|^ACTIVE_MODEL=.*|ACTIVE_MODEL=\"${model}\"|" \
-        "${INSTALL_DIR}/config/models.conf" 2>/dev/null || true
-    ACTIVE_MODEL="${model}"
-    pok "Active model set: ${model}"
-}
-
-cmd_pull() {
-    local model="${1:-}"
-    if [[ -z "${model}" ]]; then
-        pe "Usage: pull <model_name>"
-        pi "Example: pull qwen2.5-coder:7b"
-        return
-    fi
-    pi "Pulling: ${model} (this may take a while...)"
-    nl
-    if ollama pull "${model}"; then
-        pok "Model ready: ${model}"
-        pi "Run 'switch ${model}' to activate it"
-    else
-        pe "Failed to pull: ${model}"
-    fi
-}
-
-cmd_arsenal() {
-    nl
-    if [[ -f "${INSTALL_DIR}/arsenal/arsenal_manager.sh" ]]; then
-        bash "${INSTALL_DIR}/arsenal/arsenal_manager.sh"
-    else
-        pe "Arsenal manager not found"
-        pi "Run: sudo bash ${INSTALL_DIR}/repair.sh"
-    fi
-}
-
-cmd_war() {
-    clear
-    echo -e "${BG_RED}\033[1;37m"
-    cat << 'WARBANNER'
-
-  ██╗    ██╗ █████╗ ██████╗     ███╗   ███╗ ██████╗ ██████╗ ███████╗
-  ██║    ██║██╔══██╗██╔══██╗    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝
-  ██║ █╗ ██║███████║██████╔╝    ██╔████╔██║██║   ██║██║  ██║█████╗
-  ██║███╗██║██╔══██║██╔══██╗    ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝
-  ╚███╔███╔╝██║  ██║██║  ██║    ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗
-   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝
-
-WARBANNER
-    echo -e "\033[0m"
-    echo -e "  ${C_BOLD_RED}⚔  VIKINGS PREPARE FOR WAR  ⚔${C_RESET}"
-    nl
-    echo -e "  ${C_BOLD_RED}WAR MODE installs ALL arsenal tools and configures the full environment.${C_RESET}"
-    nl
-    read -rp "  Type WAR to confirm deployment: " confirm_war
-    if [[ "${confirm_war}" == "WAR" ]]; then
-        pwar "INITIATING WAR MODE DEPLOYMENT"
-        bash "${INSTALL_DIR}/arsenal/arsenal_manager.sh" --war-mode 2>/dev/null || \
-            pe "Arsenal manager not found. Run: sudo bash ${INSTALL_DIR}/repair.sh"
-    else
-        pw "WAR MODE aborted."
-    fi
-}
-
-cmd_logs() {
-    local log_type="${1:-install}"
-    local log_file="${INSTALL_DIR}/logs/${log_type}.log"
-    if [[ ! -f "${log_file}" ]]; then
-        pe "Log not found: ${log_file}"
-        pi "Available: install, error, ollama, arsenal"
-        return
-    fi
-    pi "Last 50 lines of ${log_type}.log:"
-    sep
-    tail -n 50 "${log_file}"
-}
-
-cmd_config() {
-    local action="${1:-show}"
-    case "${action}" in
-        show)
-            pi "═══ CONFIGURATION ═══"
-            sep
-            cat "${INSTALL_DIR}/config/viking.conf" 2>/dev/null || pe "Config not found"
-            ;;
-        edit)
-            "${EDITOR:-nano}" "${INSTALL_DIR}/config/viking.conf"
-            ;;
-        reset)
-            pw "Reset config? This cannot be undone."
-            read -rp "  Confirm [y/N]: " r
-            [[ "${r,,}" == "y" ]] && sudo bash "${INSTALL_DIR}/install.sh" --repair
-            ;;
-        *)
-            pi "Usage: config [show|edit|reset]"
-            ;;
+    # Lookup: try exact, then lowercase, then strip special chars
+    local _low_tool="${_user_tool,,}"
+    local _strip_tool; _strip_tool=$(echo "$_low_tool" | tr -d ' -_.')
+    local _resolved_tool="${_NAMES[$_low_tool]:-${_NAMES[$_strip_tool]:-$_user_tool}}"
+
+    # ── GUI tools need display check, handle separately ────────────────────
+    case "$_low_tool" in
+      wireshark)
+        launch_gui "wireshark" "Use: sudo tshark -i eth0"; return 0 ;;
+      burp|burpsuite|burp*suite)
+        launch_gui "burpsuite" "Use: nikto -h <target> for CLI web scanning"; return 0 ;;
+      chrome|google-chrome)
+        launch_gui "google-chrome" "Use: curl or wget instead"; return 0 ;;
+      firefox)
+        launch_gui "firefox" "Use: curl or wget instead"; return 0 ;;
+      zap|owasp-zap|zaproxy)
+        launch_gui "zaproxy" "Use: nikto for CLI scanning"; return 0 ;;
+      maltego)
+        launch_gui "maltego" "Use: theHarvester or spiderfoot for CLI OSINT"; return 0 ;;
     esac
-}
 
-cmd_help() {
-    nl
-    echo -e "${C_BOLD_GREEN}  ⚔  Viking-AI :: Command Reference  ⚔${C_RESET}"
-    sep
-    echo -e "  ${C_BOLD_CYAN}SYSTEM${C_RESET}"
-    echo -e "  ${C_GREEN}  help${C_RESET}               Show this menu"
-    echo -e "  ${C_GREEN}  status${C_RESET}             System status"
-    echo -e "  ${C_GREEN}  clear${C_RESET}              Clear terminal"
-    echo -e "  ${C_GREEN}  exit${C_RESET}               Exit Viking-AI"
-    nl
-    echo -e "  ${C_BOLD_CYAN}MODELS${C_RESET}"
-    echo -e "  ${C_GREEN}  models${C_RESET}             List installed models"
-    echo -e "  ${C_GREEN}  switch <model>${C_RESET}     Switch active model"
-    echo -e "  ${C_GREEN}  pull <model>${C_RESET}       Download a model"
-    nl
-    echo -e "  ${C_BOLD_CYAN}ARSENAL${C_RESET}"
-    echo -e "  ${C_GREEN}  arsenal${C_RESET}            Open arsenal manager"
-    echo -e "  ${C_GREEN}  war${C_RESET}                WAR MODE — full arsenal deploy"
-    nl
-    echo -e "  ${C_BOLD_CYAN}MAINTENANCE${C_RESET}"
-    echo -e "  ${C_GREEN}  update${C_RESET}             Update system"
-    echo -e "  ${C_GREEN}  repair${C_RESET}             Repair installation"
-    echo -e "  ${C_GREEN}  logs [install|error|ollama|arsenal]${C_RESET}"
-    echo -e "  ${C_GREEN}  config [show|edit|reset]${C_RESET}"
-    sep
-    nl
-}
+    # ── ALWAYS TRY TO LAUNCH FIRST — ask to install only if launch fails ──
+    v_info "Trying to launch: $_resolved_tool"
+    if launch_tool "$_resolved_tool"; then
+      return 0
+    fi
 
-# =============================================================================
-# MAIN REPL
-# =============================================================================
-main() {
-    show_banner
-    check_ollama_ready
-    pok "VIK is online. Model: ${ACTIVE_MODEL}"
-    pi  "Type 'help' for commands or just start talking."
-    nl
-
-    while true; do
-        echo -ne "  ${C_BOLD_GREEN}warrior${C_RESET}${C_GRAY} »${C_RESET} "
-        IFS= read -r user_input
-        [[ -z "${user_input}" ]] && continue
-        echo "[$(date '+%H:%M:%S')] USER: ${user_input}" >> \
-            "${INSTALL_DIR}/logs/install.log" 2>/dev/null || true
-
-        case "${user_input,,}" in
-            help)            cmd_help ;;
-            exit|quit|bye)
-                echo -e "\n  ${C_BOLD_GREEN}VIK:${C_RESET} ${C_GREEN}Skál, warrior. Until next battle.${C_RESET}\n"
-                exit 0
-                ;;
-            clear)           clear ; show_banner ;;
-            status)          cmd_status ;;
-            models)          cmd_models ;;
-            switch\ *)       cmd_switch "${user_input#switch }" ;;
-            pull\ *)         cmd_pull "${user_input#pull }" ;;
-            arsenal)         cmd_arsenal ;;
-            war)             cmd_war ;;
-            update)          sudo bash "${INSTALL_DIR}/update.sh" ;;
-            repair)          sudo bash "${INSTALL_DIR}/repair.sh" ;;
-            logs\ *)         cmd_logs "${user_input#logs }" ;;
-            logs)            cmd_logs "install" ;;
-            config\ *)       cmd_config "${user_input#config }" ;;
-            config)          cmd_config "show" ;;
-            *)               send_to_vik "${user_input}" ;;
-        esac
-    done
-}
-
-main "$@"
-STARTSCRIPT
-
-    chmod +x "${INSTALL_DIR}/start.sh"
-    print_ok "start.sh generated"
-}
-
-# =============================================================================
-# ARSENAL MANAGER
-# =============================================================================
-# ARSENAL MANAGER
-# =============================================================================
-
-generate_arsenal_manager() {
-    print_step "GENERATING ARSENAL MANAGER"
-
-    cat > "${ARSENAL_DIR}/arsenal_manager.sh" << 'ARSENALMGR'
-#!/usr/bin/env bash
-# =============================================================================
-# Viking-AI :: Arsenal Manager
-# Categorised hacking tool installer and manager
-# =============================================================================
-
-set -uo pipefail
-
-readonly INSTALL_DIR="/opt/Viking-AI"
-readonly TOOLS_DIR="${INSTALL_DIR}/tools"
-readonly ARSENAL_LOG="${INSTALL_DIR}/logs/arsenal.log"
-readonly GITHUB_TOOLS_DIR="${TOOLS_DIR}/github"
-
-C_RESET="\033[0m"
-C_GREEN="\033[0;32m"
-C_BOLD_GREEN="\033[1;32m"
-C_RED="\033[0;31m"
-C_BOLD_RED="\033[1;31m"
-C_CYAN="\033[0;36m"
-C_BOLD_CYAN="\033[1;36m"
-C_GRAY="\033[0;90m"
-C_YELLOW="\033[0;33m"
-C_BOLD_WHITE="\033[1;37m"
-BG_RED="\033[41m"
-
-nl()  { echo ""; }
-sep() { echo -e "${C_GRAY}  ──────────────────────────────────────────────────${C_RESET}"; }
-log_a() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ${1}" >> "${ARSENAL_LOG}" 2>/dev/null || true; }
-pi()  { echo -e "  ${C_GREEN}[•]${C_RESET} ${1}"; log_a "[INFO]  ${1}"; }
-pok() { echo -e "  ${C_BOLD_GREEN}[✓]${C_RESET} ${1}"; log_a "[OK]    ${1}"; }
-pw()  { echo -e "  ${C_YELLOW}[!]${C_RESET} ${1}"; log_a "[WARN]  ${1}"; }
-pe()  { echo -e "  ${C_BOLD_RED}[✗]${C_RESET} ${1}"; log_a "[ERROR] ${1}"; }
-
-# =============================================================================
-# TOOL REGISTRY — Format: "NUM|CATEGORY|NAME|TYPE|SOURCE"
-# TYPE: apt | pip | github | go | cargo
-# =============================================================================
-
-declare -a TOOLS=(
-    "1|SCANNING|nmap|apt|nmap"
-    "2|SCANNING|masscan|apt|masscan"
-    "3|SCANNING|rustscan|cargo|rustscan"
-    "4|SCANNING|webcheck|github|https://github.com/X3RX3SSec/WebCheck.git"
-    "5|SCANNING|dracnmap|github|https://github.com/screetsec/Dracnmap.git"
-    "6|SCANNING|reconspider|github|https://github.com/bhavsec/reconspider.git"
-    "7|SCANNING|striker|github|https://github.com/s0md3v/Striker.git"
-    "8|SCANNING|rang3r|github|https://github.com/floriankunushevci/rang3r.git"
-    "9|WEB|gobuster|apt|gobuster"
-    "10|WEB|ffuf|apt|ffuf"
-    "11|WEB|feroxbuster|cargo|feroxbuster"
-    "12|WEB|dalfox|github|https://github.com/hahwul/dalfox.git"
-    "13|WEB|httpx|github|https://github.com/projectdiscovery/httpx.git"
-    "14|WEB|subfinder|github|https://github.com/projectdiscovery/subfinder.git"
-    "15|WEB|sublist3r|github|https://github.com/aboul3la/Sublist3r.git"
-    "16|WEB|takeover|github|https://github.com/edoardottt/takeover.git"
-    "17|WEB|red_hawk|github|https://github.com/Tuhinshubhra/RED_HAWK.git"
-    "18|WEB|breacher|github|https://github.com/s0md3v/Breacher.git"
-    "19|WEB|secretfinder|github|https://github.com/m4ll0k/SecretFinder.git"
-    "20|WEB|dirb|apt|dirb"
-    "21|WEB|web2attack|github|https://github.com/santatic/web2attack.git"
-    "22|WEB|checkurl|github|https://github.com/UndeadSec/checkURL.git"
-    "23|XSS|xsstrike|github|https://github.com/s0md3v/XSStrike.git"
-    "24|XSS|xss-loader|github|https://github.com/capture0x/XSS-LOADER.git"
-    "25|XSS|xspear|github|https://github.com/hahwul/XSpear.git"
-    "26|XSS|xsscon|github|https://github.com/menkrep1337/XSSCon.git"
-    "27|XSS|xanxss|github|https://github.com/Ekultek/XanXSS.git"
-    "28|XSS|extended-xss-search|github|https://github.com/Damian89/extended-xss-search.git"
-    "29|XSS|rvuln|github|https://github.com/yangr0/RVuln.git"
-    "30|SQLI|sqlmap|apt|sqlmap"
-    "31|SQLI|nosqlmap|github|https://github.com/codingo/NoSQLMap.git"
-    "32|SQLI|dsss|github|https://github.com/stamparm/DSSS.git"
-    "33|SQLI|blisqy|github|https://github.com/JohnTroony/Blisqy.git"
-    "34|SQLI|sqlscan|github|https://github.com/Cvar1984/sqlscan.git"
-    "35|SQLI|leviathan|github|https://github.com/utkusen/leviathan.git"
-    "36|WIFI|aircrack-ng|apt|aircrack-ng"
-    "37|WIFI|hcxdumptool|apt|hcxdumptool"
-    "38|WIFI|reaver|apt|reaver"
-    "39|WIFI|wifite2|github|https://github.com/derv82/wifite2.git"
-    "40|WIFI|wifiphisher|github|https://github.com/wifiphisher/wifiphisher.git"
-    "41|WIFI|fluxion|github|https://github.com/FluxionNetwork/fluxion.git"
-    "42|WIFI|wifipumpkin3|github|https://github.com/P0cL4bs/wifipumpkin3.git"
-    "43|WIFI|pixiewps|github|https://github.com/wiire-a/pixiewps.git"
-    "44|WIFI|oneshot|github|https://github.com/kimocoder/OneShot.git"
-    "45|WIFI|fakeap|github|https://github.com/Z4nzu/fakeap.git"
-    "46|OSINT|amass|apt|amass"
-    "47|OSINT|theharvester|github|https://github.com/laramies/theHarvester.git"
-    "48|OSINT|recon-ng|apt|recon-ng"
-    "49|OSINT|spiderfoot|github|https://github.com/smicallef/spiderfoot.git"
-    "50|OSINT|holehe|github|https://github.com/megadose/holehe.git"
-    "51|OSINT|maigret|github|https://github.com/soxoj/maigret.git"
-    "52|OSINT|recondog|github|https://github.com/s0md3v/ReconDog.git"
-    "53|EXPLOIT|metasploit|apt|metasploit-framework"
-    "54|EXPLOIT|searchsploit|apt|exploitdb"
-    "55|EXPLOIT|xerosploit|github|https://github.com/LionSec/xerosploit.git"
-    "56|EXPLOIT|death_star|github|https://github.com/Ringmast4r/DEATH_STAR.git"
-    "57|EXPLOIT|thefatrat|github|https://github.com/screetsec/TheFatRat.git"
-    "58|EXPLOIT|brutal|github|https://github.com/screetsec/Brutal.git"
-    "59|EXPLOIT|msfpc|github|https://github.com/g0tmi1k/msfpc.git"
-    "60|EXPLOIT|venom|github|https://github.com/r00t-3xp10it/venom.git"
-    "61|EXPLOIT|explo|github|https://github.com/telekom-security/explo.git"
-    "62|NETWORK|chisel|go|github.com/jpillora/chisel"
-    "63|NETWORK|ligolo-ng|go|github.com/nicocha30/ligolo-ng/cmd/proxy"
-    "64|NETWORK|multitor|github|https://github.com/trimstray/multitor.git"
-    "65|NETWORK|anonsurf|github|https://github.com/Und3rf10w/kali-anonsurf.git"
-    "66|FORENSICS|volatility3|apt|volatility3"
-    "67|FORENSICS|autopsy|apt|autopsy"
-    "68|FORENSICS|bulk_extractor|github|https://github.com/simsong/bulk_extractor.git"
-    "69|FORENSICS|trufflehog|github|https://github.com/trufflesecurity/trufflehog.git"
-    "70|FORENSICS|gitleaks|github|https://github.com/gitleaks/gitleaks.git"
-    "71|CONTAINERS|peirates|go|github.com/inguardians/peirates"
-    "72|CONTAINERS|kube-hunter|pip|kube-hunter"
-    "73|WINDOWS|peass-ng|github|https://github.com/carlospolop/PEASS-ng.git"
-    "74|WINDOWS|enigma|github|https://github.com/UndeadSec/Enigma.git"
-    "75|WINDOWS|herakeylogger|github|https://github.com/UndeadSec/HeraKeylogger.git"
-    "76|WINDOWS|vegile|github|https://github.com/screetsec/Vegile.git"
-    "77|PASSWORDS|hashcat|apt|hashcat"
-    "78|PASSWORDS|john|apt|john"
-    "79|PASSWORDS|cupp|github|https://github.com/Mebus/cupp.git"
-    "80|PASSWORDS|wlcreator|github|https://github.com/Z4nzu/wlcreator.git"
-    "81|PASSWORDS|goblinwordgen|github|https://github.com/UndeadSec/GoblinWordGenerator.git"
-    "82|PHISHING|set|github|https://github.com/trustedsec/social-engineer-toolkit.git"
-    "83|PHISHING|socialfish|github|https://github.com/UndeadSec/SocialFish.git"
-    "84|PHISHING|evilginx2|github|https://github.com/kgretzky/evilginx2.git"
-    "85|PHISHING|autophisher|github|https://github.com/CodingRanjith/autophisher.git"
-    "86|PHISHING|advphishing|github|https://github.com/Ignitetch/AdvPhishing.git"
-    "87|PHISHING|maskphish|github|https://github.com/jaykali/maskphish.git"
-    "88|PHISHING|blackphish|github|https://github.com/yangr0/BlackPhish.git"
-    "89|TRACKING|iseeyou|github|https://github.com/Viralmaniar/I-See-You.git"
-    "90|TRACKING|saycheese|github|https://github.com/hangetzzu/saycheese.git"
-    "91|TRACKING|ohmyqr|github|https://github.com/cryptedwolf/ohmyqr.git"
-    "92|TRACKING|smwyg|github|https://github.com/Viralmaniar/SMWYG-Show-Me-What-You-Got.git"
-    "93|TRACKING|qrljacking|github|https://github.com/OWASP/QRLJacking.git"
-    "94|TRACKING|thanos|github|https://github.com/TridevReddy/Thanos.git"
-)
-
-# =============================================================================
-# INSTALL FUNCTIONS
-# =============================================================================
-
-install_apt_tool() {
-    local name="${1}" pkg="${2}"
-    pi "apt: ${name}"
-    DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkg}" \
-        >> "${ARSENAL_LOG}" 2>&1 && pok "Installed: ${name}" || pe "Failed: ${name}"
-}
-
-install_pip_tool() {
-    local name="${1}" pkg="${2}"
-    pi "pip: ${name}"
-    pip3 install "${pkg}" --break-system-packages \
-        >> "${ARSENAL_LOG}" 2>&1 && pok "Installed: ${name}" || pe "Failed: ${name}"
-}
-
-install_github_tool() {
-    local name="${1}" repo="${2}"
-    local dest="${GITHUB_TOOLS_DIR}/${name}"
-    pi "github: ${name}"
-    mkdir -p "${dest}" 2>/dev/null || true
-    if [[ -d "${dest}/.git" ]]; then
-        git -C "${dest}" pull >> "${ARSENAL_LOG}" 2>&1 || true
-        pok "Updated: ${name}"
-    else
-        if git clone --depth=1 "${repo}" "${dest}" >> "${ARSENAL_LOG}" 2>&1; then
-            pok "Cloned: ${name}"
+    # Launch failed or not found — ask user what to do
+    echo ""
+    echo -e "${Y}  [!] Could not launch: $_resolved_tool${NC}"
+    echo -e "  ${C}[1]${NC}  Install via arsenal"
+    local _apt_pkg="${_APT[${_low_tool}]:-${_APT[${_resolved_tool,,}]:-}}"
+    if [[ -n "$_apt_pkg" ]]; then
+      echo -e "  ${C}[2]${NC}  Quick install: sudo apt install $_apt_pkg"
+    fi
+    echo -e "  ${C}[3]${NC}  Show me how to install it manually"
+    echo -e "  ${C}[4]${NC}  Skip"
+    echo -ne "  ${Y}Choice: ${NC}"
+    local _ic; read -r _ic
+    case "$_ic" in
+      1) bash "$VIKING_DIR/arsenal_menu.sh" ;;
+      2)
+        if [[ -n "$_apt_pkg" ]]; then
+          v_info "Installing $_apt_pkg..."
+          if sudo apt-get install -y -qq "$_apt_pkg" 2>/dev/null; then
+            v_ok "Installed. Launching $_resolved_tool..."
+            launch_tool "$_resolved_tool"
+          fi
         else
-            pe "Failed clone: ${name}"; return 1
-        fi
-    fi
-    if [[ -f "${dest}/requirements.txt" ]]; then
-        pip3 install -r "${dest}/requirements.txt" --break-system-packages \
-            >> "${ARSENAL_LOG}" 2>&1 || pw "Some requirements failed: ${name}"
-    fi
-    if [[ -f "${dest}/setup.py" ]]; then
-        cd "${dest}" && python3 setup.py install >> "${ARSENAL_LOG}" 2>&1 \
-            || pw "setup.py failed: ${name}"
-        cd - > /dev/null
-    fi
-}
-
-install_cargo_tool() {
-    local name="${1}" pkg="${2}"
-    pi "cargo: ${name}"
-    if ! command -v cargo &>/dev/null; then
-        pw "Rust not found. Installing..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-            | sh -s -- -y >> "${ARSENAL_LOG}" 2>&1
-        source "${HOME}/.cargo/env" 2>/dev/null || true
-    fi
-    cargo install "${pkg}" >> "${ARSENAL_LOG}" 2>&1 \
-        && pok "Installed: ${name}" || pe "Failed cargo: ${name}"
-}
-
-install_go_tool() {
-    local name="${1}" source="${2}"
-    pi "go: ${name}"
-    if ! command -v go &>/dev/null; then
-        pw "Go not found. Installing via apt..."
-        apt-get install -y golang >> "${ARSENAL_LOG}" 2>&1 || {
-            pe "Go unavailable — cannot install ${name}"; return 1
-        }
-    fi
-    go install "${source}@latest" >> "${ARSENAL_LOG}" 2>&1 \
-        && pok "Installed: ${name}" || pe "Failed go install: ${name}"
-}
-
-# =============================================================================
-# SINGLE TOOL INSTALL DISPATCH
-# =============================================================================
-
-install_by_entry() {
-    local entry="${1}"
-    local number category name type source
-    IFS='|' read -r number category name type source <<< "${entry}"
-    nl
-    echo -e "  ${C_BOLD_CYAN}[${number}]${C_RESET} ${C_GREEN}${name}${C_RESET} ${C_GRAY}[${category}]${C_RESET}"
-    sep
-    case "${type}" in
-        apt)    install_apt_tool    "${name}" "${source}" ;;
-        pip)    install_pip_tool    "${name}" "${source}" ;;
-        github) install_github_tool "${name}" "${source}" ;;
-        cargo)  install_cargo_tool  "${name}" "${source}" ;;
-        go)     install_go_tool     "${name}" "${source}" ;;
-        *)      pe "Unknown type: ${type} for ${name}" ;;
+          v_err "No apt package known for $_resolved_tool"
+          bash "$VIKING_DIR/arsenal_menu.sh"
+        fi ;;
+      3) ai_response "How do I install $_resolved_tool on Kali Linux? Give exact commands." ;;
+      *) v_info "Skipped." ;;
     esac
-}
+    return 0
+  fi
 
-# =============================================================================
-# PROGRESS BAR
-# =============================================================================
+  # ── UPDATE ───────────────────────────────────────────────────
+  if match "$INPUT" "^update$|^update viking|check.*update|new.*version"; then
+    v_info "Checking for updates..."
+    local tmp_upd="/tmp/viking_update_$$.sh"
+    local remote_ver=""
+    if ! curl -fsSL "https://raw.githubusercontent.com/skuldexter-web/Viking-AI/main/install.sh"         -o "$tmp_upd" 2>/dev/null; then
+      v_err "Cannot reach GitHub. Check internet connection."
+      rm -f "$tmp_upd"
+      return 0
+    fi
+    remote_ver=$(grep 'readonly VIKING_VERSION=' "$tmp_upd" 2>/dev/null |       grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    remote_ver="${remote_ver:-unknown}"
+    local cur_ver
+    cur_ver=$(grep 'readonly VIKING_VERSION=' "$INSTALL_PATH" 2>/dev/null |       grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || cur_ver="unknown"
+    echo ""
+    echo -e "  Current : ${Y}${cur_ver}${NC}"
+    echo -e "  Remote  : ${G}${remote_ver}${NC}"
+    echo ""
+    if [[ "$remote_ver" == "$cur_ver" ]]; then
+      v_ok "Already up to date (v${cur_ver})"
+      rm -f "$tmp_upd"
+    else
+      echo -ne "${Y}  Update to v${remote_ver}? [Y/n]: ${NC}"
+      read -r uc
+      if [[ "${uc,,}" != "n" ]]; then
+        chmod +x "$tmp_upd"
+        sudo bash "$tmp_upd"
+        v_ok "Update applied. Restart viking."
+      fi
+      rm -f "$tmp_upd"
+    fi
+    return 0
+  fi
 
-progress_bar() {
-    local current="${1}" total="${2}" label="${3:-}"
-    local width=40
-    local pct=$(( (current * 100) / total ))
-    local filled=$(( (current * width) / total ))
-    local empty=$(( width - filled ))
-    local bar="" i
-    for ((i=0; i<filled; i++)); do bar+="█"; done
-    for ((i=0; i<empty; i++));  do bar+="░"; done
-    printf "\r  \033[0;32m[%s]\033[0m \033[1;32m%3d%%\033[0m  \033[0;90m%s\033[0m   " \
-        "${bar}" "${pct}" "${label}"
-    [[ "${current}" -eq "${total}" ]] && printf "\n"
-}
+  # ── RTL-SDR / RADIO TOOLS ────────────────────────────────────
 
-# =============================================================================
-# DISPLAY ARSENAL MENU
-# =============================================================================
+  # ADS-B Flight Radar (dump1090)
+  if match "$INPUT" "dump1090|flight.*radar|adsb|ads-b|aircraft|plane.*track"; then
+    if ! _tool_available dump1090; then _prompt_install dump1090 || return 0; fi
+    echo ""
+    echo -e "${B}${Y}  [*] VIKING ADS-B FLIGHT RADAR [*]${NC}"
+    echo -e "  ${C}[1]${NC}  Interactive mode (terminal display)"
+    echo -e "  ${C}[2]${NC}  Raw output (pipe to other tools)"
+    echo -e "  ${C}[3]${NC}  Net mode (feeds port 30003 for mapping)"
+    echo -ne "  ${Y}[1-3]: ${NC}"
+    local fr_mode; read -r fr_mode
+    v_info "Starting dump1090 ADS-B receiver (needs RTL-SDR dongle)..."
+    local d1090_bin; d1090_bin=$(command -v dump1090 2>/dev/null) ||       d1090_bin="$ARSENAL_DIR/dump1090/dump1090"
+    if [[ ! -x "${d1090_bin}" ]]; then
+      v_err "dump1090 binary not found or not executable"
+      return 0
+    fi
+    case "$fr_mode" in
+      2) "$d1090_bin" --quiet ;;
+      3) "$d1090_bin" --net --net-ro-port 30003 ;;
+      *) "$d1090_bin" --interactive --net ;;
+    esac
+    return 0
+  fi
 
-display_menu() {
-    clear ; nl
-    echo -e "${C_BOLD_GREEN}  ⚔  VIKING-AI ARSENAL MANAGER  ⚔${C_RESET}"
-    sep ; nl
-    local cur_cat=""
-    for entry in "${TOOLS[@]}"; do
-        local num cat name type src
-        IFS='|' read -r num cat name type src <<< "${entry}"
-        if [[ "${cat}" != "${cur_cat}" ]]; then
-            nl
-            echo -e "  ${C_BOLD_CYAN}[ ${cat} ]${C_RESET}"
-            cur_cat="${cat}"
-        fi
-        local mark=" "
-        local dest="${GITHUB_TOOLS_DIR}/${name}"
-        if [[ "${type}" == "apt" ]] && command -v "${name}" &>/dev/null 2>&1; then
-            mark="${C_BOLD_GREEN}✓${C_RESET}"
-        elif [[ "${type}" == "github" ]] && [[ -d "${dest}/.git" ]]; then
-            mark="${C_BOLD_GREEN}✓${C_RESET}"
-        fi
-        printf "  %b  ${C_GRAY}%3s${C_RESET}  %-28s ${C_GRAY}%-8s  %s${C_RESET}\n" \
-            "${mark}" "${num}" "${name}" "${type}" "${src##*/}"
+  # RTL_433 — decode IoT/weather/garage sensors
+  if match "$INPUT" "rtl.?433|rtl433|sensor.*decode|weather.*sensor|iot.*radio|433.*mhz"; then
+    if ! _tool_available rtl_433; then _prompt_install rtl_433 || return 0; fi
+    echo ""
+    echo -e "${B}${Y}  [*] RTL_433 SENSOR DECODER [*]${NC}"
+    echo -e "  ${C}[1]${NC}  Auto-detect all signals"
+    echo -e "  ${C}[2]${NC}  JSON output (pipe-friendly)"
+    echo -e "  ${C}[3]${NC}  Specific frequency (enter MHz)"
+    echo -ne "  ${Y}[1-3]: ${NC}"
+    local r433_mode; read -r r433_mode
+    v_info "Starting rtl_433 (needs RTL-SDR dongle)..."
+    case "$r433_mode" in
+      2) launch_tool rtl_433 -F json ;;
+      3)
+        echo -ne "  ${Y}Frequency (MHz, e.g. 433.92): ${NC}"
+        local r433_freq; read -r r433_freq
+        launch_tool rtl_433 -f "${r433_freq}M" ;;
+      *) launch_tool rtl_433 ;;
+    esac
+    return 0
+  fi
+
+  # Ham Radio / General SDR spectrum view
+  if match "$INPUT" "hamradio|ham.*radio|gqrx|sdr.*spectrum|spectrum.*view|radio.*scan|gnuradio"; then
+    echo ""
+    echo -e "${B}${Y}  [*] RADIO / SDR TOOLS [*]${NC}"
+    echo -e "  ${C}[1]${NC}  gqrx       — GUI SDR receiver (needs display)"
+    echo -e "  ${C}[2]${NC}  rtl_fm     — FM radio to audio (CLI)"
+    echo -e "  ${C}[3]${NC}  multimon-ng — decode POCSAG/AFSK/AX25 pager signals"
+    echo -e "  ${C}[4]${NC}  kalibrate  — measure GSM clock offset of RTL-SDR"
+    echo -ne "  ${Y}[1-4]: ${NC}"
+    local radio_mode; read -r radio_mode
+    case "$radio_mode" in
+      1) launch_gui "gqrx" "Use rtl_fm for CLI FM radio" ;;
+      2)
+        echo -ne "  ${Y}FM frequency (MHz, e.g. 99.9): ${NC}"
+        local fm_freq; read -r fm_freq
+        v_info "Tuning RTL-SDR to ${fm_freq} MHz FM..."
+        echo -e "  ${D}Playing via speaker — Ctrl+C to stop${NC}"
+        rtl_fm -f "${fm_freq}M" -M fm -s 200000 -r 48000 2>/dev/null |           aplay -r 48000 -f S16_LE -t raw - 2>/dev/null ||           v_err "aplay not found. Install: sudo apt install alsa-utils"
+        ;;
+      3)
+        v_info "multimon-ng — decode radio signals (pipe from rtl_fm)..."
+        echo -e "  ${C}Example: rtl_fm -f 152.04M -s 22050 | multimon-ng -t raw -a POCSAG512 -f alpha -${NC}"
+        if ! _tool_available multimon-ng; then _prompt_install multimon-ng; fi
+        ;;
+      4)
+        v_info "kalibrate-rtl — GSM calibration..."
+        launch_tool kal -s GSM900
+        ;;
+    esac
+    return 0
+  fi
+
+  # RTL-SDR general info / setup
+  if match "$INPUT" "rtl.?sdr|software.*defined.*radio|sdr.*setup|rtl.*setup"; then
+    echo ""
+    echo -e "${B}${Y}  [*] RTL-SDR SETUP & INFO [*]${NC}"
+    echo ""
+    echo -e "  ${C}Check dongle detected:${NC}"
+    echo -e "    rtl_test -t"
+    echo ""
+    echo -e "  ${C}Available CLI tools:${NC}"
+    for tool in rtl_fm rtl_433 rtl_test dump1090 multimon-ng kalibrate-rtl; do
+      if command -v "$tool" &>/dev/null; then
+        printf "    ${G}[installed]${NC}  %s
+" "$tool"
+      else
+        printf "    ${R}[missing]${NC}    %s
+" "$tool"
+      fi
     done
-    nl ; sep ; nl
-    echo -e "  ${C_GRAY}[number]${C_RESET}    Install specific tool"
-    echo -e "  ${C_GRAY}all${C_RESET}         Install ALL tools"
-    echo -e "  ${C_GRAY}CATEGORY${C_RESET}    Install by category (e.g: WIFI, XSS, OSINT)"
-    echo -e "  ${C_GRAY}verify${C_RESET}      Check installed tools"
-    echo -e "  ${C_GRAY}back${C_RESET}        Return to VIK"
-    nl
+    echo ""
+    echo -e "  ${Y}Install all RTL-SDR tools:${NC} arsenal -> [114-120]"
+    ai_response "RTL-SDR software defined radio CLI setup guide and what you can do with a cheap USB dongle"
+    return 0
+  fi
+
+  # -- HIDDEN TOOL (Rick Roll easter egg) ---
+  # Trigger: exactly "rick roll" typed by user
+  if match "$INPUT" "^rick[[:space:]]roll$|^rickroll$"; then
+    clear
+    echo ""
+    echo -e "${Y}  The skalds sing an ancient and cursed battle hymn...${NC}"
+    echo ""
+    sleep 1
+    echo -e "${C}"
+    echo '            .-----------. '
+    echo '           /  .--------.  \\'
+    echo '          / /  ________  \\ \\'
+    echo '         | |  / o    o \\  | |'
+    echo '         | |  |  _=_  |  | |'
+    echo '          \\ \\ \\______/ / /'
+    echo '           \\  --------  /'
+    echo '            `-----------'\'''
+    echo '           /|    Rick   |\\'
+    echo '          / |   Astley  | \\'
+    echo '         /__|___________|__\\'
+    echo -e "${NC}${RB}"
+    echo "  ██████╗ ██╗ ██████╗██╗  ██╗  ██████╗  ██████╗ ██╗     ██╗     "
+    echo "  ██╔══██╗██║██╔════╝██║ ██╔╝  ██╔══██╗██╔═══██╗██║     ██║     "
+    echo "  ██████╔╝██║██║     █████╔╝   ██████╔╝██║   ██║██║     ██║     "
+    echo "  ██╔══██╗██║██║     ██╔═██╗   ██╔══██╗██║   ██║██║     ██║     "
+    echo "  ██║  ██║██║╚██████╗██║  ██╗  ██║  ██║╚██████╔╝███████╗███████╗"
+    echo "  ╚═╝  ╚═╝╚═╝ ╚═════╝╚═╝  ╚═╝  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝"
+    echo -e "${NC}${Y}"
+    echo "  ══════════════════════════════════════════════════════"
+    echo "   Never Gonna Give You Up  --  Rick Astley  (1987)    "
+    echo "  ══════════════════════════════════════════════════════"
+    echo ""
+    echo "  We're no strangers to love"
+    echo "  You know the rules and so do I"
+    echo "  A full commitment's what I'm thinking of"
+    echo "  You wouldn't get this from any other guy"
+    echo ""
+    echo "  I just wanna tell you how I'm feeling"
+    echo "  Gotta make you understand"
+    echo ""
+    echo -e "${RB}  [CHORUS]${NC}${Y}"
+    echo "  Never gonna give you up"
+    echo "  Never gonna let you down"
+    echo "  Never gonna run around and desert you"
+    echo "  Never gonna make you cry"
+    echo "  Never gonna say goodbye"
+    echo "  Never gonna tell a lie and hurt you"
+    echo ""
+    echo "  We've known each other for so long"
+    echo "  Your heart's been aching but you're too shy to say it"
+    echo "  Inside we both know what's been going on"
+    echo "  We know the game and we're gonna play it"
+    echo ""
+    echo "  And if you ask me how I'm feeling"
+    echo "  Don't tell me you're too blind to see"
+    echo ""
+    echo -e "${RB}  [CHORUS]${NC}${Y}"
+    echo "  Never gonna give you up"
+    echo "  Never gonna let you down"
+    echo "  Never gonna run around and desert you"
+    echo "  Never gonna make you cry"
+    echo "  Never gonna say goodbye"
+    echo "  Never gonna tell a lie and hurt you"
+    echo ""
+    echo -e "${NC}"
+    echo "  ══════════════════════════════════════════════════════"
+    v_say "You have been Rick Rolled by VIKING. No browser. No song. Just pain."
+    echo ""
+    return 0
+  fi
+
+  # ── CODING ───────────────────────────────────────────────────
+  if match "$INPUT" "python|write.*me|create.*script|make.*script|html|css|javascript|flask|django|bash.*script|code.*for|write.*a|powershell|golang"; then
+    v_info "Scripting mode..."
+    ai_response "Write complete working commented code. Full code block first, brief explanation after. Task: $INPUT"
+    return 0
+  fi
+
+  # ── GENERAL FALLBACK ─────────────────────────────────────────
+  echo ""
+  v_info "Processing..."
+  ai_response "$INPUT"
+  log "AI: $INPUT"
+  return 0
 }
 
-# =============================================================================
-# INTERACTIVE LOOP
-# =============================================================================
+# ════════════════════════════════════════════════════════════════
+#  MAIN LOOP
+# ════════════════════════════════════════════════════════════════
+show_banner
+warm_model
+show_welcome
 
-run_interactive() {
-    while true; do
-        display_menu
-        echo -ne "  ${C_BOLD_GREEN}arsenal${C_RESET}${C_GRAY} »${C_RESET} "
-        IFS= read -r choice
-        case "${choice,,}" in
-            back|exit|q|quit) break ;;
-            all)
-                read -rp "  Install ALL ${#TOOLS[@]} tools? [y/N]: " c
-                if [[ "${c,,}" == "y" ]]; then
-                    local i=0
-                    for entry in "${TOOLS[@]}"; do
-                        install_by_entry "${entry}"
-                        i=$(( i + 1 ))
-                        progress_bar "${i}" "${#TOOLS[@]}" "Installing"
-                    done
-                    pok "All tools processed"
-                fi
-                ;;
-            verify)
-                local inst=0 tot=0
-                for entry in "${TOOLS[@]}"; do
-                    IFS='|' read -r _ _ name type _ <<< "${entry}"
-                    tot=$(( tot + 1 ))
-                    local dest="${GITHUB_TOOLS_DIR}/${name}"
-                    if [[ "${type}" == "apt" ]] && command -v "${name}" &>/dev/null; then
-                        inst=$(( inst + 1 ))
-                    elif [[ "${type}" == "github" ]] && [[ -d "${dest}/.git" ]]; then
-                        inst=$(( inst + 1 ))
-                    fi
-                done
-                pok "Arsenal: ${inst}/${tot} tools verified"
-                ;;
-            [0-9]*)
-                local found=0
-                for entry in "${TOOLS[@]}"; do
-                    local n; n=$(echo "${entry}" | cut -d'|' -f1)
-                    if [[ "${n}" == "${choice}" ]]; then
-                        install_by_entry "${entry}"; found=1; break
-                    fi
-                done
-                [[ "${found}" -eq 0 ]] && pe "Tool #${choice} not found"
-                ;;
-            *)
-                local cat_upper
-                cat_upper=$(echo "${choice}" | tr '[:lower:]' '[:upper:]')
-                local cnt=0
-                for entry in "${TOOLS[@]}"; do
-                    local c; c=$(echo "${entry}" | cut -d'|' -f2)
-                    if [[ "${c}" == "${cat_upper}" ]]; then
-                        install_by_entry "${entry}"
-                        cnt=$(( cnt + 1 ))
-                    fi
-                done
-                if [[ "${cnt}" -eq 0 ]]; then
-                    pe "Category '${cat_upper}' not found"
-                else
-                    pok "${cat_upper}: ${cnt} tools processed"
-                fi
-                ;;
-        esac
-        echo -ne "\n  Press ENTER to continue..."
-        read -r
-    done
-}
+while true; do
+  # Prompt shows active target if set
+  if [[ -n "$CURRENT_TARGET" ]]; then
+    echo -ne "${Y}You${NC}${D}[${NC}${G}${CURRENT_TARGET}${NC}${D}]${NC}${Y}:${NC} "
+  else
+    echo -ne "${Y}You: ${NC}"
+  fi
 
-# =============================================================================
-# WAR MODE — installs everything
-# =============================================================================
-
-war_mode_deploy() {
-    nl
-    echo -e "${BG_RED}\033[1;37m  ⚔  WAR MODE — DEPLOYING ALL ${#TOOLS[@]} TOOLS  ⚔  \033[0m"
-    nl
-    mkdir -p "${GITHUB_TOOLS_DIR}" 2>/dev/null || true
-    apt-get update -qq >> "${ARSENAL_LOG}" 2>&1 || true
-    local i=0
-    for entry in "${TOOLS[@]}"; do
-        install_by_entry "${entry}" 2>/dev/null || true
-        i=$(( i + 1 ))
-        progress_bar "${i}" "${#TOOLS[@]}" "WAR MODE"
-    done
-    nl
-    echo -e "\033[1;32m  ⚔  WAR MODE COMPLETE — ${#TOOLS[@]} tools processed  ⚔\033[0m"
-    nl
-    log_a "WAR MODE complete: ${#TOOLS[@]} tools"
-}
-
-# =============================================================================
-# MAIN
-# =============================================================================
-
-mkdir -p "${GITHUB_TOOLS_DIR}" 2>/dev/null || true
-
-if [[ "${1:-}" == "--war-mode" ]]; then
-    war_mode_deploy
-else
-    run_interactive
-fi
-ARSENALMGR
-
-    chmod +x "${ARSENAL_DIR}/arsenal_manager.sh"
-    print_ok "arsenal_manager.sh generated"
-}
-
-# =============================================================================
-# REPAIR SCRIPT GENERATION
-# =============================================================================
-
-generate_repair_script() {
-    print_step "GENERATING REPAIR SCRIPT"
-
-    cat > "${INSTALL_DIR}/repair.sh" << 'REPAIRSCRIPT'
-#!/usr/bin/env bash
-# =============================================================================
-# Viking-AI :: repair.sh
-# =============================================================================
-
-set -uo pipefail
-readonly INSTALL_DIR="/opt/Viking-AI"
-
-C_RESET="\033[0m"
-C_BOLD_GREEN="\033[1;32m"
-C_BOLD_RED="\033[1;31m"
-C_YELLOW="\033[0;33m"
-C_GREEN="\033[0;32m"
-C_GRAY="\033[0;90m"
-
-pok() { echo -e "  ${C_BOLD_GREEN}[✓]${C_RESET} ${1}"; }
-pi()  { echo -e "  ${C_GREEN}[•]${C_RESET} ${1}"; }
-pw()  { echo -e "  ${C_YELLOW}[!]${C_RESET} ${1}"; }
-pe()  { echo -e "  ${C_BOLD_RED}[✗]${C_RESET} ${1}"; }
-sep() { echo -e "${C_GRAY}  ──────────────────────────────────────────────${C_RESET}"; }
-
-echo ""
-echo -e "${C_BOLD_GREEN}  ⚔  Viking-AI Repair System v1.0.0  ⚔${C_RESET}"
-sep ; echo ""
-
-[[ "${EUID}" -ne 0 ]] && { pe "Requires root: sudo bash repair.sh"; exit 1; }
-
-pi "Repairing directories..."
-for d in config prompts logs logs/archive arsenal arsenal/scanning arsenal/web \
-          arsenal/wifi arsenal/osint arsenal/exploit arsenal/network arsenal/forensics \
-          arsenal/containers arsenal/windows arsenal/passwords arsenal/phishing \
-          arsenal/xss arsenal/sqli arsenal/anonymity arsenal/wordlists arsenal/tracking \
-          models cache modules themes ui tools tools/github tmp backups; do
-    mkdir -p "${INSTALL_DIR}/${d}" && pok "${d}" || pe "Failed: ${d}"
+  read -r INPUT || break
+  [[ -z "$INPUT" ]] && continue
+  log "USER: $INPUT"
+  handle_input "$INPUT" || break
 done
 
-pi "Repairing log files..."
-for log in install.log error.log ollama.log arsenal.log; do
-    touch "${INSTALL_DIR}/logs/${log}" 2>/dev/null \
-        && pok "logs/${log}" || pw "Could not create: ${log}"
-done
+VIKINGSCRIPT
 
-pi "Verifying Ollama..."
-if command -v ollama &>/dev/null; then
-    pok "Ollama binary: found"
-    if curl -sf "http://localhost:11434/api/tags" &>/dev/null; then
-        pok "Ollama API: running"
-    else
-        pw "Ollama offline. Starting..."
-        nohup ollama serve >> "${INSTALL_DIR}/logs/ollama.log" 2>&1 &
-        disown $! 2>/dev/null || true
-        sleep 5
-        if curl -sf "http://localhost:11434/api/tags" &>/dev/null; then
-            pok "Ollama started"
-        else
-            pe "Could not start Ollama"
-        fi
-    fi
-else
-    pe "Ollama not installed. Run: sudo bash ${INSTALL_DIR}/install.sh"
+  chmod +x "$INSTALL_PATH"
+  log_ok "VIKING CLI -> $INSTALL_PATH"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  TMUX AUTO-SESSION
+# ════════════════════════════════════════════════════════════════
+configure_tmux() {
+  log_step "6" "Configuring tmux auto-session..."
+  local rc="$HOME/.bashrc"
+  local marker="# VIKING-TMUX"
+  grep -q "$marker" "$rc" 2>/dev/null && { log_ok "tmux already configured"; return; }
+  cat >> "$rc" << 'TMUXCONF'
+
+# VIKING-TMUX
+if command -v tmux &>/dev/null && [[ -z "${TMUX:-}" ]]; then
+  tmux has-session -t viking 2>/dev/null || tmux new-session -d -s viking
 fi
-
-pi "Checking default model..."
-if curl -sf "http://localhost:11434/api/tags" 2>/dev/null | grep -q "gemma3:1b"; then
-    pok "gemma3:1b available"
-else
-    pw "gemma3:1b not found. Pull: ollama pull gemma3:1b"
-fi
-
-pi "Verifying scripts..."
-for s in start.sh update.sh repair.sh arsenal/arsenal_manager.sh; do
-    if [[ -f "${INSTALL_DIR}/${s}" ]]; then
-        chmod +x "${INSTALL_DIR}/${s}"
-        pok "${s}"
-    else
-        pe "MISSING: ${s} — re-run install.sh"
-    fi
-done
-
-if [[ ! -f "/usr/local/bin/vik" ]]; then
-    ln -sf "${INSTALL_DIR}/start.sh" /usr/local/bin/vik \
-        && pok "Symlink restored: /usr/local/bin/vik" \
-        || pe "Could not create symlink"
-else
-    pok "/usr/local/bin/vik present"
-fi
-
-echo "" ; sep
-pok "Repair complete. Run 'vik' to launch."
-echo ""
-REPAIRSCRIPT
-
-    chmod +x "${INSTALL_DIR}/repair.sh"
-    print_ok "repair.sh generated"
+TMUXCONF
+  log_ok "tmux auto-session configured"
 }
 
-# =============================================================================
-# UPDATE SCRIPT GENERATION
-# =============================================================================
+# ════════════════════════════════════════════════════════════════
+#  INSTALL WIZARD
+# ════════════════════════════════════════════════════════════════
+run_install_wizard() {
+  log_step "7" "Weapon Arsenal setup"
+  echo ""
+  echo -e "  ${B}${C}Select installation mode:${NC}\n"
+  echo -e "  ${Y}[1]${NC}  VIKING CLI + AI only     (no extra tools)"
+  echo -e "  ${Y}[2]${NC}  Pick tools from arsenal  (enter numbers)"
+  echo -e "  ${RB}[3]${NC}  ${RB}WAR MODE${NC} - install all ${#ARSENAL[@]} tools"
+  echo -e "  ${Y}[4]${NC}  Skip\n"
+  echo -ne "  Choice [1-4]: "
+  read -r choice
 
-generate_update_script() {
-    print_step "GENERATING UPDATE SCRIPT"
-
-    cat > "${INSTALL_DIR}/update.sh" << 'UPDATESCRIPT'
-#!/usr/bin/env bash
-# =============================================================================
-# Viking-AI :: update.sh
-# =============================================================================
-
-set -uo pipefail
-readonly INSTALL_DIR="/opt/Viking-AI"
-
-C_RESET="\033[0m"
-C_BOLD_GREEN="\033[1;32m"
-C_BOLD_RED="\033[1;31m"
-C_YELLOW="\033[0;33m"
-C_GREEN="\033[0;32m"
-C_GRAY="\033[0;90m"
-
-pok() { echo -e "  ${C_BOLD_GREEN}[✓]${C_RESET} ${1}"; }
-pi()  { echo -e "  ${C_GREEN}[•]${C_RESET} ${1}"; }
-pw()  { echo -e "  ${C_YELLOW}[!]${C_RESET} ${1}"; }
-pe()  { echo -e "  ${C_BOLD_RED}[✗]${C_RESET} ${1}"; }
-sep() { echo -e "${C_GRAY}  ──────────────────────────────────────────────${C_RESET}"; }
-
-echo ""
-echo -e "${C_BOLD_GREEN}  ⚔  Viking-AI Update System  ⚔${C_RESET}"
-sep ; echo ""
-
-[[ "${EUID}" -ne 0 ]] && { pe "Requires root: sudo bash update.sh"; exit 1; }
-
-BACKUP="${INSTALL_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
-mkdir -p "${BACKUP}"
-cp -r "${INSTALL_DIR}/config" "${BACKUP}/" 2>/dev/null \
-    && pok "Config backed up: ${BACKUP}"
-
-pi "Updating system packages..."
-apt-get update -qq \
-    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
-        -o Dpkg::Options::="--force-confdef" \
-        -o Dpkg::Options::="--force-confold" \
-        >> "${INSTALL_DIR}/logs/install.log" 2>&1 \
-    && pok "System packages updated" || pw "Package update had warnings"
-
-pi "Updating Ollama..."
-curl -fsSL https://ollama.com/install.sh | bash \
-    >> "${INSTALL_DIR}/logs/ollama.log" 2>&1 \
-    && pok "Ollama updated" || pw "Ollama already current"
-
-pi "Updating GitHub tools..."
-GITHUB_DIR="${INSTALL_DIR}/tools/github"
-updated=0 ; failed=0
-if [[ -d "${GITHUB_DIR}" ]]; then
-    for repo in "${GITHUB_DIR}"/*/; do
-        if [[ -d "${repo}/.git" ]]; then
-            name=$(basename "${repo}")
-            if git -C "${repo}" pull >> "${INSTALL_DIR}/logs/arsenal.log" 2>&1; then
-                pok "Updated: ${name}" ; updated=$(( updated + 1 ))
-            else
-                pw "Could not update: ${name}" ; failed=$(( failed + 1 ))
-            fi
-        fi
-    done
-fi
-pi "GitHub tools: ${updated} updated, ${failed} failed"
-
-pi "Rotating large logs..."
-for logfile in "${INSTALL_DIR}/logs/"*.log; do
-    size=$(stat -c%s "${logfile}" 2>/dev/null || echo "0")
-    if [[ "${size}" -gt 10485760 ]]; then
-        mv "${logfile}" "${INSTALL_DIR}/logs/archive/$(basename "${logfile}").$(date +%Y%m%d)" \
-            && touch "${logfile}" && pok "Rotated: $(basename "${logfile}")"
-    fi
-done
-
-echo "" ; sep
-pok "Update complete. Run 'vik' to launch."
-echo ""
-UPDATESCRIPT
-
-    chmod +x "${INSTALL_DIR}/update.sh"
-    print_ok "update.sh generated"
+  case "$choice" in
+    1) log_ok "Standard install - CLI + AI ready." ;;
+    2)
+      display_arsenal_table
+      echo -e "  Tool numbers space-separated (e.g. ${C}1 3 7 28${NC}):"
+      echo -ne "  > "
+      read -r picks
+      mkdir -p "$ARSENAL_DIR"
+      for n in $picks; do install_tool "$n" || true; done ;;
+    3) war_mode_install ;;
+    4) log_info "Skipping tool installation." ;;
+    *) log_warn "Invalid choice - skipping." ;;
+  esac
 }
 
-# =============================================================================
-# UNINSTALL SCRIPT GENERATION
-# =============================================================================
-
-generate_uninstall_script() {
-    print_step "GENERATING UNINSTALL SCRIPT"
-
-    cat > "${INSTALL_DIR}/uninstall.sh" << 'UNINSTSCRIPT'
-#!/usr/bin/env bash
-# =============================================================================
-# Viking-AI :: uninstall.sh :: Clean Removal
-# =============================================================================
-
-C_RESET="\033[0m"
-C_BOLD_RED="\033[1;31m"
-C_BOLD_GREEN="\033[1;32m"
-C_YELLOW="\033[0;33m"
-C_GRAY="\033[0;90m"
-
-sep() { echo -e "${C_GRAY}  ──────────────────────────────────────────────${C_RESET}"; }
-
-echo ""
-echo -e "${C_BOLD_RED}  ⚔  Viking-AI Uninstaller  ⚔${C_RESET}"
-sep ; echo ""
-
-[[ "${EUID}" -ne 0 ]] && { echo "  Requires root: sudo bash uninstall.sh"; exit 1; }
-
-echo -e "  ${C_YELLOW}WARNING: Removes /opt/Viking-AI and all cloned tools.${C_RESET}"
-echo -e "  ${C_YELLOW}Ollama and system packages will NOT be removed.${C_RESET}"
-echo ""
-read -rp "  Type CONFIRM to proceed: " c
-[[ "${c}" != "CONFIRM" ]] && { echo "  Aborted."; exit 0; }
-
-rm -f /usr/local/bin/vik && echo "  Removed: /usr/local/bin/vik"
-rm -rf /opt/Viking-AI    && echo "  Removed: /opt/Viking-AI"
-
-echo "" ; sep
-echo -e "  ${C_BOLD_GREEN}Viking-AI removed. Skál, warrior.${C_RESET}"
-echo ""
-UNINSTSCRIPT
-
-    chmod +x "${INSTALL_DIR}/uninstall.sh"
-    print_ok "uninstall.sh generated"
+# ════════════════════════════════════════════════════════════════
+#  COMPLETION BANNER
+# ════════════════════════════════════════════════════════════════
+show_completion() {
+  echo ""
+  echo -e "${B}${G}"
+  echo "  ██████╗  ██████╗ ███╗   ██╗███████╗██╗"
+  echo "  ██╔══██╗██╔═══██╗████╗  ██║██╔════╝██║"
+  echo "  ██║  ██║██║   ██║██╔██╗ ██║█████╗  ██║"
+  echo "  ██║  ██║██║   ██║██║╚██╗██║██╔══╝  ╚═╝"
+  echo "  ██████╔╝╚██████╔╝██║ ╚████║███████╗██╗"
+  echo "  ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝"
+  echo -e "${NC}"
+  echo "  ═════════════════════════════════════════════════"
+  echo -e "${B}${Y}  [*]   VIKING AI - Installation Complete   [*]${NC}"
+  echo "  ═════════════════════════════════════════════════"
+  echo ""
+  echo -e "  Launch:          ${C}viking${NC}"
+  echo -e "  In tmux:         ${C}tmux new -s viking${NC}  then  ${C}viking${NC}"
+  echo -e "  Detach tmux:     ${C}Ctrl+B then D${NC}"
+  echo -e "  Reattach:        ${C}tmux attach -t viking${NC}"
+  echo -e "  Browse tools:    inside viking -> ${C}arsenal${NC}"
+  echo -e "  Switch model:    inside viking -> ${C}model${NC}"
+  echo -e "  Lock target:     inside viking -> ${C}target 192.168.1.1${NC}"
+  echo -e "  Scan results:    ${D}\$HOME/viking_scans/${NC}"
+  echo -e "  Instagram:       ${D}@s.k.7.l.d${NC}"
+  echo ""
+  echo -e "  ${Y}The longship is ready. Type 'viking' to sail.${NC}"
+  echo ""
 }
 
-# =============================================================================
-# SYSTEM SYMLINK
-# =============================================================================
+# ════════════════════════════════════════════════════════════════
+#  UPDATE FUNCTION — pull latest install.sh from GitHub and re-run
+# ════════════════════════════════════════════════════════════════
+self_update() {
+  log_step "U" "Checking for updates..."
+  local tmp_install="/tmp/viking_update_$$.sh"
+  local remote_version=""
 
-create_system_symlink() {
-    print_step "SYSTEM COMMAND REGISTRATION"
+  log_info "Fetching latest version from GitHub..."
+  if ! curl -fsSL "$GITHUB_RAW" -o "$tmp_install" 2>/dev/null; then
+    log_err "Could not reach GitHub. Check internet connection."
+    rm -f "$tmp_install"
+    return 1
+  fi
 
-    rm -f "/usr/local/bin/vik" 2>/dev/null || true
+  # Extract remote version
+  remote_version=$(grep 'readonly VIKING_VERSION=' "$tmp_install" 2>/dev/null |     grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  remote_version="${remote_version:-unknown}"
 
-    if ln -sf "${INSTALL_DIR}/start.sh" /usr/local/bin/vik; then
-        print_ok "Command registered: vik (available system-wide)"
-    else
-        print_warn "Could not create /usr/local/bin/vik"
-        print_info "Launch manually: bash ${INSTALL_DIR}/start.sh"
-    fi
+  echo ""
+  echo -e "  Current version : ${Y}${VIKING_VERSION}${NC}"
+  echo -e "  Remote version  : ${G}${remote_version}${NC}"
+  echo ""
+
+  if [[ "$remote_version" == "$VIKING_VERSION" ]]; then
+    log_ok "VIKING AI is already up to date (v${VIKING_VERSION})"
+    rm -f "$tmp_install"
+    return 0
+  fi
+
+  echo -ne "  ${Y}Update to v${remote_version}? [Y/n]: ${NC}"
+  read -r upd_choice
+  if [[ "${upd_choice,,}" == "n" ]]; then
+    log_info "Update cancelled."
+    rm -f "$tmp_install"
+    return 0
+  fi
+
+  log_info "Applying update..."
+  chmod +x "$tmp_install"
+  sudo bash "$tmp_install"
+  rm -f "$tmp_install"
+  log_ok "Update complete. Restart viking to use the new version."
 }
 
-# =============================================================================
-# LOG ROTATION CONFIG
-# =============================================================================
-
-setup_log_rotation() {
-    print_step "LOG ROTATION"
-
-    cat > "/etc/logrotate.d/viking-ai" << LOGROTCONF
-${LOGS_DIR}/*.log {
-    size 10M
-    rotate 5
-    compress
-    delaycompress
-    missingok
-    notifempty
-    copytruncate
-    olddir ${LOGS_DIR}/archive
-}
-LOGROTCONF
-
-    print_ok "Log rotation configured"
-}
-
-# =============================================================================
-# INSTALLATION VERIFICATION
-# =============================================================================
-
-verify_installation() {
-    print_step "INSTALLATION VERIFICATION"
-
-    local passed=0 failed=0
-
-    local dirs=("${INSTALL_DIR}" "${CONFIG_DIR}" "${PROMPTS_DIR}" "${LOGS_DIR}" \
-                "${ARSENAL_DIR}" "${TOOLS_DIR}")
-    for d in "${dirs[@]}"; do
-        if [[ -d "${d}" ]]; then print_ok "Dir: ${d##*/}" ; passed=$(( passed + 1 ))
-        else print_error "Missing: ${d}" ; failed=$(( failed + 1 )); fi
-    done
-
-    local scripts=("start.sh" "repair.sh" "update.sh" "uninstall.sh" \
-                   "arsenal/arsenal_manager.sh")
-    for s in "${scripts[@]}"; do
-        if [[ -f "${INSTALL_DIR}/${s}" && -x "${INSTALL_DIR}/${s}" ]]; then
-            print_ok "Script: ${s##*/}" ; passed=$(( passed + 1 ))
-        else
-            print_error "Missing: ${s##*/}" ; failed=$(( failed + 1 ))
-        fi
-    done
-
-    command -v ollama &>/dev/null \
-        && { print_ok "Ollama: found"       ; passed=$(( passed + 1 )); } \
-        || { print_error "Ollama: NOT FOUND" ; failed=$(( failed + 1 )); }
-
-    curl -sf "${OLLAMA_API}/api/tags" &>/dev/null \
-        && { print_ok "Ollama API: responsive" ; passed=$(( passed + 1 )); } \
-        || print_warn "Ollama API: offline (may need manual start)"
-
-    check_model_exists "${DEFAULT_MODEL}" 2>/dev/null \
-        && { print_ok "Model: ${DEFAULT_MODEL}" ; passed=$(( passed + 1 )); } \
-        || print_warn "Model: ${DEFAULT_MODEL} not confirmed yet"
-
-    [[ -L "/usr/local/bin/vik" ]] \
-        && { print_ok "Command: vik" ; passed=$(( passed + 1 )); } \
-        || print_warn "vik not in /usr/local/bin"
-
-    nl ; sep
-    echo -e "  ${C_BOLD_GREEN}Passed: ${passed}${C_RESET}  ${C_BOLD_RED}Failed: ${failed}${C_RESET}"
-    sep
-
-    return "${failed}"
-}
-
-# =============================================================================
-# MODE HANDLERS
-# =============================================================================
-
-run_repair_mode() {
-    print_installer_header
-    print_step "REPAIR MODE"
-    if [[ -f "${INSTALL_DIR}/repair.sh" ]]; then
-        bash "${INSTALL_DIR}/repair.sh"
-    else
-        print_warn "repair.sh not found — running inline repair..."
-        create_directory_structure
-        generate_config_files
-        generate_prompt_files
-        generate_start_script
-        generate_arsenal_manager
-        generate_repair_script
-        generate_update_script
-        generate_uninstall_script
-        create_system_symlink
-    fi
-    exit 0
-}
-
-run_update_mode() {
-    print_installer_header
-    print_step "UPDATE MODE"
-    if [[ -f "${INSTALL_DIR}/update.sh" ]]; then
-        bash "${INSTALL_DIR}/update.sh"
-    else
-        print_error "update.sh not found. Run: sudo bash install.sh --repair"
-    fi
-    exit 0
-}
-
-# =============================================================================
-# INSTALL SUMMARY
-# =============================================================================
-
-print_install_summary() {
-    local elapsed=$(( $(date +%s) - SCRIPT_START_TIME ))
-
-    nl
-    echo -e "${C_GRAY}  ════════════════════════════════════════════════════════════${C_RESET}"
-    echo -e "${C_BOLD_GREEN}"
-    cat << 'SUMMARY'
-    ╔══════════════════════════════════════════════════╗
-    ║                                                  ║
-    ║    ⚔  VIKING-AI INSTALLATION COMPLETE  ⚔        ║
-    ║                                                  ║
-    ╚══════════════════════════════════════════════════╝
-SUMMARY
-    echo -e "${C_RESET}"
-    echo -e "  ${C_BOLD_GREEN}Install Dir:${C_RESET}   ${INSTALL_DIR}"
-    echo -e "  ${C_BOLD_GREEN}Model:${C_RESET}         ${DEFAULT_MODEL}"
-    echo -e "  ${C_BOLD_GREEN}Ollama API:${C_RESET}    ${OLLAMA_API}"
-    echo -e "  ${C_BOLD_GREEN}Time:${C_RESET}          ${elapsed}s"
-    nl
-    echo -e "  ${C_BOLD_GREEN}Launch VIK:${C_RESET}"
-    echo -e "  ${C_CYAN}    vik${C_RESET}                              ${C_GRAY}system command${C_RESET}"
-    echo -e "  ${C_CYAN}    bash /opt/Viking-AI/start.sh${C_RESET}     ${C_GRAY}direct${C_RESET}"
-    nl
-    echo -e "  ${C_BOLD_GREEN}Maintenance:${C_RESET}"
-    echo -e "  ${C_CYAN}    sudo bash ${INSTALL_DIR}/repair.sh${C_RESET}"
-    echo -e "  ${C_CYAN}    sudo bash ${INSTALL_DIR}/update.sh${C_RESET}"
-    echo -e "  ${C_CYAN}    sudo bash ${INSTALL_DIR}/uninstall.sh${C_RESET}"
-    nl
-    if [[ "${ERRORS_OCCURRED}" -eq 1 ]]; then
-        print_warn "Some steps had warnings — check: ${LOG_FILE}"
-    else
-        print_ok "Clean installation — zero errors"
-    fi
-    echo -e "${C_GRAY}  ════════════════════════════════════════════════════════════${C_RESET}"
-    echo -e "\n  ${C_BOLD_GREEN}Skál, warrior. VIK awaits your command.  ⚔${C_RESET}\n"
-}
-
-# =============================================================================
-# MAIN ORCHESTRATOR
-# =============================================================================
-
+# ════════════════════════════════════════════════════════════════
+#  MAIN
+# ════════════════════════════════════════════════════════════════
 main() {
-    parse_args "$@"
-    _preinit_logs
+  show_installer_banner
+  preflight
 
-    [[ "${REPAIR_MODE}" -eq 1 ]] && run_repair_mode
-    [[ "${UPDATE_MODE}" -eq 1 ]] && run_update_mode
+  mkdir -p "$VIKING_DIR" "$ARSENAL_DIR" "$LOG_DIR"
 
-    # Full installation flow
-    print_installer_header
-    print_vik_banner
+  install_dependencies   # step 1
+  install_ollama         # step 2
+  pull_model "$DEFAULT_MODEL"  # step 3
+  write_arsenal_registry # step 4
+  write_arsenal_menu     # step 4b
+  write_viking_script    # step 5
+  configure_tmux         # step 6
 
-    print_info "Viking-AI v${VIKING_VERSION} :: ${VIKING_CODENAME}"
-    nl
+  printf 'VIKING_MODEL="%s"\n' "$DEFAULT_MODEL" > "$CONFIG_FILE"
 
-    check_root
-    detect_distro
-    create_directory_structure
-    init_logging
-    run_apt_operations
-    check_dependencies
-    generate_config_files
-    generate_prompt_files
-    generate_start_script
-    generate_arsenal_manager
-    generate_repair_script
-    generate_update_script
-    generate_uninstall_script
-    install_ollama
-    start_ollama_service
-    check_ollama_api
-    pull_default_model
-    list_installed_models
-    create_system_symlink
-    setup_log_rotation
-    verify_installation || true
-    print_install_summary
+  run_install_wizard     # step 7
+  show_completion
 }
-
-# =============================================================================
-# ENTRY POINT
-# =============================================================================
 
 main "$@"
