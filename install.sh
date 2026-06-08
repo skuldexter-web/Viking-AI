@@ -695,22 +695,39 @@ war_mode_install() {
 #  ARSENAL TABLE
 # ════════════════════════════════════════════════════════════════
 display_arsenal_table() {
-  local current_cat=""
   echo ""
   echo -e "${B}${Y}  [*]  WEAPONS ARSENAL  [*]${NC}"
   echo -e "  ══════════════════════════════════════════════════════"
+
+  local categories=()
+  local seen="|"
+  local key name category tag
+
   while IFS= read -r key; do
     IFS='|' read -r name category _ _ <<< "${ARSENAL[$key]}"
-    if [[ "$category" != "$current_cat" ]]; then
-      current_cat="$category"
-      echo -e "\n${B}${M}    -- $category --${NC}"
+    if [[ "$seen" != *"|$category|"* ]]; then
+      categories+=("$category")
+      seen+="$category|"
     fi
-    local tag=""
-    if _tool_is_installed "$name" "$ARSENAL_DIR/$name"; then
-      tag="${G}[installed]${NC}"
-    fi
-    printf "  ${C}[%03d]${NC}  %-32s%b\n" "$key" "$name" "$tag"
-  done < <(printf '%s\n' "${!ARSENAL[@]}" | sort -n)
+  done < <(printf '%s
+' "${!ARSENAL[@]}" | sort -n)
+
+  for category in "${categories[@]}"; do
+    echo -e "\n${B}${M}    -- $category --${NC}"
+
+    while IFS= read -r key; do
+      IFS='|' read -r name cat _ _ <<< "${ARSENAL[$key]}"
+      [[ "$cat" == "$category" ]] || continue
+
+      tag=""
+      if _tool_is_installed "$name" "$ARSENAL_DIR/$name"; then
+        tag="${G}[installed]${NC}"
+      fi
+
+      printf "  ${C}[%03d]${NC}  %-32s%b\n" "$key" "$name" "$tag"
+    done < <(printf '%s\n' "${!ARSENAL[@]}" | sort -n)
+  done
+
   echo -e "\n  ══════════════════════════════════════════════════════\n"
 }
 
