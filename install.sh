@@ -741,205 +741,541 @@ write_arsenal_registry() {
 # ════════════════════════════════════════════════════════════════
 write_arsenal_menu() {
   log_step "4b" "Writing arsenal menu..."
-  cat > "$ARSENAL_MENU" << 'MENU'
+  cat > "$ARSENAL_MENU" << 'ARSENAL_MENU_SCRIPT'
 #!/bin/bash
-# VIKING Arsenal Menu
+# ================================================================
+#  VIKING AI - Weapons Arsenal
+#  Hierarchical category system | 15 categories | WARMODE
+#  Architecture: CAT arrays -> submenu engine -> real installer
+# ================================================================
 
+# ── Paths ────────────────────────────────────────────────────────
 VIKING_DIR="/opt/viking"
 ARSENAL_DIR="$VIKING_DIR/arsenal"
-REGISTRY_FILE="$VIKING_DIR/arsenal_registry.sh"
 LOG_DIR="$VIKING_DIR/logs"
-WAR_JOBS=4
+mkdir -p "$ARSENAL_DIR" "$LOG_DIR"
 
-R='\033[0;31m'; RB='\033[1;31m'; G='\033[0;32m'; C='\033[0;36m'
-Y='\033[1;33m'; M='\033[0;35m'; B='\033[1m'; D='\033[2m'; NC='\033[0m'
+# ── Colors (Viking AI theme) ─────────────────────────────────────
+R='\033[0;31m'; RB='\033[1;31m'; G='\033[0;32m'; GB='\033[1;32m'
+C='\033[0;36m'; Y='\033[1;33m'; M='\033[0;35m'
+B='\033[1m';    D='\033[2m';    NC='\033[0m'
 
-source "$REGISTRY_FILE" || { echo "Registry missing - run install.sh"; exit 1; }
+v_ok()   { echo -e "${GB}[OK]${NC} $*"; }
+v_err()  { echo -e "${R}[X]${NC}  $*" >&2; }
+v_info() { echo -e "${C}[~]${NC}  $*"; }
+v_war()  { echo -e "${RB}[WAR]${NC} $*"; }
 
-log_ok()  { echo -e "${G}[OK]${NC} $*"; }
-log_err() { echo -e "${R}[X]${NC} $*" >&2; }
-log_war() { echo -e "${RB}[WAR]${NC} $*"; }
+# ================================================================
+#  TOOL DATA ARRAYS
+#  Format per element: "ToolName|GitHubURL|install_type"
+#  install_type values:
+#    git_python  -> git clone + pip install requirements.txt
+#    git_go      -> git clone + go build
+#    git_generic -> git clone + make / setup.sh / install.sh
+#    apt:pkg     -> apt-get install pkg  (git fallback on fail)
+#    pip:pkg     -> pip3 install pkg     (git fallback on fail)
+# ================================================================
 
-_tool_is_installed() {
-  local name="$1" dest="$2"
-  command -v "$name" &>/dev/null && return 0
-  command -v "${name,,}" &>/dev/null && return 0
-  if [[ -d "$dest" ]]; then
-    local ep="${TOOL_ENTRYPOINTS[$name]:-}"
-    if [[ -n "$ep" ]]; then
-      local script="${ep%%|*}"
-      [[ -f "$dest/$script" ]] && return 0
-    fi
-    find "$dest" -maxdepth 2 -type f \( -name "*.py" -o -name "*.sh" -o -executable \) \
-      2>/dev/null | grep -q . && return 0
-  fi
-  return 1
-}
+CAT1=(
+  "WebCheck|https://github.com/X3RX3SSec/WebCheck.git|git_python"
+  "RED_HAWK|https://github.com/Tuhinshubhra/RED_HAWK.git|git_python"
+  "theHarvester|https://github.com/laramies/theHarvester.git|git_python"
+  "spiderfoot|https://github.com/smicallef/spiderfoot.git|git_python"
+  "amass|https://github.com/owasp-amass/amass.git|apt:amass"
+  "recon-ng|https://github.com/lanmaster53/recon-ng.git|git_python"
+  "findomain|https://github.com/findomain/findomain.git|git_generic"
+)
 
-_post_install() {
-  local dest="$1" type="$2"
-  case "$type" in
-    git_python)
-      [[ -f "$dest/requirements.txt" ]] &&
-        pip3 install -q -r "$dest/requirements.txt" \
-          --break-system-packages 2>/dev/null || true ;;
-    git_go)
-      [[ -f "$dest/go.mod" ]] && (cd "$dest" && go build ./... 2>/dev/null) || true ;;
-    git_generic)
-      if   [[ -f "$dest/Makefile"   ]]; then (cd "$dest" && make -s 2>/dev/null)        || true
-      elif [[ -f "$dest/setup.sh"   ]]; then (cd "$dest" && bash setup.sh 2>/dev/null)   || true
-      elif [[ -f "$dest/install.sh" ]]; then (cd "$dest" && bash install.sh 2>/dev/null) || true
-      fi ;;
-  esac
-}
+CAT2=(
+  "nmap|https://github.com/nmap/nmap.git|apt:nmap"
+  "masscan|https://github.com/robertdavidgraham/masscan.git|apt:masscan"
+  "RustScan|https://github.com/bee-san/RustScan.git|apt:rustscan"
+  "httpx|https://github.com/projectdiscovery/httpx.git|git_go"
+  "subfinder|https://github.com/projectdiscovery/subfinder.git|git_go"
+  "naabu|https://github.com/projectdiscovery/naabu.git|git_go"
+  "dnsx|https://github.com/projectdiscovery/dnsx.git|git_go"
+)
 
-_git_clone_fallback() {
-  local name="$1" url="$2" dest="$3"
-  echo -e "${Y}[!]${NC} Falling back to git clone: $name"
-  if [[ -d "$dest/.git" ]]; then
-    git -C "$dest" pull -q 2>/dev/null || true
-  else
-    git clone --depth=1 -q "$url" "$dest" 2>/dev/null || {
-      log_err "Git clone failed: $name"; return 1
-    }
-  fi
-  _post_install "$dest" "git_generic"
-  [[ -f "$dest/requirements.txt" ]] &&
-    pip3 install -q -r "$dest/requirements.txt" --break-system-packages 2>/dev/null || true
-  log_ok "$name installed via git"
-}
+CAT3=(
+  "SecretFinder|https://github.com/m4ll0k/SecretFinder.git|git_python"
+  "waybackurls|https://github.com/tomnomnom/waybackurls.git|git_go"
+  "gau|https://github.com/lc/gau.git|git_go"
+  "hakrawler|https://github.com/hakluke/hakrawler.git|git_go"
+  "takeover|https://github.com/edoardottt/takeover.git|git_go"
+  "commix|https://github.com/commixproject/commix.git|apt:commix"
+  "wpscan|https://github.com/wpscanteam/wpscan.git|apt:wpscan"
+  "ffuf|https://github.com/ffuf/ffuf.git|apt:ffuf"
+  "gobuster|https://github.com/OJ/gobuster.git|apt:gobuster"
+  "dirsearch|https://github.com/maurosoria/dirsearch.git|apt:dirsearch"
+  "feroxbuster|https://github.com/epi052/feroxbuster.git|apt:feroxbuster"
+  "katana|https://github.com/projectdiscovery/katana.git|git_go"
+  "jaeles|https://github.com/jaeles-project/jaeles.git|git_go"
+  "arjun|https://github.com/s0md3v/Arjun.git|pip:arjun"
+  "nuclei|https://github.com/projectdiscovery/nuclei.git|git_go"
+)
 
+CAT4=(
+  "dalfox|https://github.com/hahwul/dalfox.git|git_go"
+  "XSpear|https://github.com/hahwul/XSpear.git|git_generic"
+  "XSStrike|https://github.com/s0md3v/XSStrike.git|git_python"
+)
+
+CAT5=(
+  "sqlmap|https://github.com/sqlmapproject/sqlmap.git|apt:sqlmap"
+  "NoSQLMap|https://github.com/codingo/NoSQLMap.git|git_python"
+  "DSSS|https://github.com/stamparm/DSSS.git|git_python"
+)
+
+CAT6=(
+  "OneShot|https://github.com/kimocoder/OneShot.git|git_python"
+  "wifipumpkin3|https://github.com/P0cL4bs/wifipumpkin3.git|git_python"
+  "pixiewps|https://github.com/wiire-a/pixiewps.git|apt:pixiewps"
+  "bluepot|https://github.com/andrewmichaelsmith/bluepot.git|git_generic"
+  "btlejack|https://github.com/virtualabs/btlejack.git|pip:btlejack"
+  "bluesnarfer|https://github.com/Sante51/bluesnarfer.git|git_generic"
+  "fluxion|https://github.com/FluxionNetwork/fluxion.git|git_generic"
+  "wifiphisher|https://github.com/wifiphisher/wifiphisher.git|git_python"
+  "wifite2|https://github.com/derv82/wifite2.git|git_python"
+  "aircrack-ng|https://github.com/aircrack-ng/aircrack-ng.git|apt:aircrack-ng"
+  "bettercap|https://github.com/bettercap/bettercap.git|apt:bettercap"
+  "hcxdumptool|https://github.com/ZerBea/hcxdumptool.git|apt:hcxdumptool"
+  "hcxtools|https://github.com/ZerBea/hcxtools.git|apt:hcxtools"
+  "eaphammer|https://github.com/s0lst1c3/eaphammer.git|git_python"
+)
+
+CAT7=(
+  "kali-anonsurf|https://github.com/Und3rf10w/kali-anonsurf.git|git_generic"
+  "multitor|https://github.com/trimstray/multitor.git|git_generic"
+)
+
+CAT8=(
+  "holehe|https://github.com/megadose/holehe.git|pip:holehe"
+  "maigret|https://github.com/soxoj/maigret.git|pip:maigret"
+  "trufflehog|https://github.com/trufflesecurity/trufflehog.git|git_go"
+  "sherlock|https://github.com/sherlock-project/sherlock.git|apt:sherlock"
+  "phoneinfoga|https://github.com/sundowndev/phoneinfoga.git|git_go"
+  "GHunt|https://github.com/mxrch/GHunt.git|git_python"
+  "shodan|https://github.com/achillean/shodan-python.git|pip:shodan"
+  "censys|https://github.com/censys/censys-python.git|pip:censys"
+  "blackbird|https://github.com/p1ngul1n0/blackbird.git|git_python"
+)
+
+CAT9=(
+  "bulk_extractor|https://github.com/simsong/bulk_extractor.git|apt:bulk-extractor"
+  "TheFatRat|https://github.com/screetsec/TheFatRat.git|git_generic"
+  "msfpc|https://github.com/g0tmi1k/msfpc.git|git_generic"
+  "venom|https://github.com/r00t-3xp10it/venom.git|git_generic"
+  "metasploit|https://github.com/rapid7/metasploit-framework.git|apt:metasploit-framework"
+  "sliver|https://github.com/bishopfox/sliver.git|git_go"
+  "havoc|https://github.com/Havoc-Framework/Havoc.git|git_generic"
+  "empire|https://github.com/BC-SECURITY/Empire.git|apt:powershell-empire"
+)
+
+CAT10=(
+  "netexec|https://github.com/Pennyw0rth/NetExec.git|apt:netexec"
+  "responder|https://github.com/lgandx/Responder.git|apt:responder"
+  "impacket|https://github.com/fortra/impacket.git|apt:python3-impacket"
+  "bloodhound|https://github.com/specterops/bloodhound.git|apt:bloodhound"
+  "certipy|https://github.com/ly4k/Certipy.git|pip:certipy-ad"
+  "BloodHound.py|https://github.com/Fox-IT/BloodHound.py.git|git_python"
+  "mitm6|https://github.com/dirkjanm/mitm6.git|pip:mitm6"
+)
+
+CAT11=(
+  "hashcat|https://github.com/hashcat/hashcat.git|apt:hashcat"
+  "john|https://github.com/openwall/john.git|apt:john"
+  "hydra|https://github.com/vanhauser-thc/thc-hydra.git|apt:hydra"
+  "name-that-hash|https://github.com/HashPals/Name-That-Hash.git|pip:name-that-hash"
+  "cupp|https://github.com/Mebus/cupp.git|git_python"
+  "SecLists|https://github.com/danielmiessler/SecLists.git|git_generic"
+)
+
+CAT12=(
+  "SET|https://github.com/trustedsec/social-engineer-toolkit.git|git_python"
+  "SocialFish|https://github.com/UndeadSec/SocialFish.git|git_python"
+  "evilginx2|https://github.com/kgretzky/evilginx2.git|git_go"
+  "gophish|https://github.com/gophish/gophish.git|git_go"
+  "zphisher|https://github.com/htr-tech/zphisher.git|git_generic"
+)
+
+CAT13=(
+  "PEASS-ng|https://github.com/carlospolop/PEASS-ng.git|git_generic"
+  "pspy|https://github.com/DominicBreuker/pspy.git|git_go"
+)
+
+CAT14=(
+  "rtl-sdr|https://github.com/osmocom/rtl-sdr.git|apt:rtl-sdr"
+  "dump1090|https://github.com/antirez/dump1090.git|git_generic"
+  "rtl_433|https://github.com/merbanan/rtl_433.git|apt:rtl-433"
+  "gqrx|https://github.com/gqrx-sdr/gqrx.git|apt:gqrx"
+  "gnuradio|https://github.com/gnuradio/gnuradio.git|apt:gnuradio"
+  "multimon-ng|https://github.com/EliasOenal/multimon-ng.git|apt:multimon-ng"
+  "kalibrate-rtl|https://github.com/steve-m/kalibrate-rtl.git|git_generic"
+  "urh|https://github.com/jopohl/urh.git|pip:urh"
+)
+
+CAT15=(
+  "assetfinder|https://github.com/tomnomnom/assetfinder.git|git_go"
+  "bombardier|https://github.com/codesenberg/bombardier.git|git_go"
+  "vulhub|https://github.com/vulhub/vulhub.git|git_generic"
+)
+
+# ================================================================
+#  CORE INSTALLER
+#  Handles all install types with apt/pip -> git fallback
+# ================================================================
 install_tool() {
-  local key
-  key=$(printf '%d' "$((10#${1}))" 2>/dev/null) || key="$1"
-  local entry="${TOOL_REGISTRY[$key]:-}"
-  [[ -z "$entry" ]] && { log_err "Tool #$key not found"; return 1; }
-
-  IFS='|' read -r name category url itype <<< "$entry"
+  local entry="$1"
+  local name url itype
+  name=$(echo "$entry" | cut -d'|' -f1)
+  url=$(echo "$entry"  | cut -d'|' -f2)
+  itype=$(echo "$entry" | cut -d'|' -f3)
   local dest="$ARSENAL_DIR/$name"
-  printf "  ${C}[%03d]${NC} %-30s ${D}%s${NC}\n" "$key" "$name" "$category"
+  local log="$LOG_DIR/install_${name}.log"
 
-  if [[ "$itype" == apt_install:* ]]; then
-    local pkg="${itype#apt_install:}"
-    if _tool_is_installed "$name" "$dest"; then log_ok "$name already on system"; return 0; fi
-    if apt-get install -y -qq "$pkg" 2>/dev/null; then log_ok "$name via apt"
-    else _git_clone_fallback "$name" "$url" "$dest"; fi
-    return 0
+  echo -e "\n${C}  Installing: ${B}$name${NC}"
+  echo -e "  ${D}Type: $itype | Dest: $dest${NC}"
+
+  # ── apt install ─────────────────────────────────────────────
+  if [[ "$itype" == apt:* ]]; then
+    local pkg="${itype#apt:}"
+    if command -v "$name" &>/dev/null 2>&1; then
+      v_ok "$name already on system"
+      return 0
+    fi
+    v_info "apt install: $pkg"
+    if apt-get install -y -qq "$pkg" >> "$log" 2>&1; then
+      v_ok "$name installed via apt"
+      return 0
+    fi
+    v_err "apt failed for $pkg - falling back to git clone"
+    # fall through to git clone below
   fi
 
-  if [[ "$itype" == pip_install:* ]]; then
-    local ppkg="${itype#pip_install:}"
-    if _tool_is_installed "$name" "$dest"; then log_ok "$name already on system"; return 0; fi
-    if pip3 install -q "$ppkg" --break-system-packages 2>/dev/null; then log_ok "$name via pip"
-    else _git_clone_fallback "$name" "$url" "$dest"; fi
-    return 0
+  # ── pip install ─────────────────────────────────────────────
+  if [[ "$itype" == pip:* ]]; then
+    local pkg="${itype#pip:}"
+    if command -v "$name" &>/dev/null 2>&1 || \
+       python3 -c "import $name" &>/dev/null 2>&1; then
+      v_ok "$name already installed"
+      return 0
+    fi
+    v_info "pip3 install: $pkg"
+    if pip3 install -q "$pkg" --break-system-packages >> "$log" 2>&1; then
+      v_ok "$name installed via pip"
+      return 0
+    fi
+    v_err "pip failed for $pkg - falling back to git clone"
+    # fall through to git clone below
   fi
 
-  if _tool_is_installed "$name" "$dest"; then
-    log_ok "$name already on system (skipping clone)"
-    return 0
+  # ── git clone (all git types + fallback from apt/pip) ───────
+  if [[ -z "$url" || "$url" == "none" ]]; then
+    v_err "No URL for $name - cannot install"
+    return 1
   fi
+
   if [[ -d "$dest/.git" ]]; then
-    git -C "$dest" pull -q 2>/dev/null || true
+    v_info "Updating existing clone: $name"
+    git -C "$dest" pull -q >> "$log" 2>&1 || true
   else
-    git clone --depth=1 -q "$url" "$dest" 2>/dev/null || {
-      log_err "Clone failed: $name"; return 1
+    v_info "git clone: $url"
+    git clone --depth=1 -q "$url" "$dest" >> "$log" 2>&1 || {
+      v_err "git clone failed: $name (see $log)"
+      return 1
     }
   fi
-  _post_install "$dest" "$itype"
-  log_ok "$name installed"
+
+  # ── post-clone build/configure ──────────────────────────────
+  case "$itype" in
+    git_python|apt:*|pip:*)
+      if [[ -f "$dest/requirements.txt" ]]; then
+        v_info "pip install requirements.txt"
+        pip3 install -q -r "$dest/requirements.txt" \
+          --break-system-packages >> "$log" 2>&1 || true
+      fi
+      ;;
+    git_go)
+      if [[ -f "$dest/go.mod" ]]; then
+        v_info "go build"
+        (cd "$dest" && go build ./... >> "$log" 2>&1) || true
+      fi
+      ;;
+    git_generic)
+      if   [[ -f "$dest/Makefile"   ]]; then
+        v_info "make"
+        (cd "$dest" && make -s >> "$log" 2>&1) || true
+      elif [[ -f "$dest/setup.sh"   ]]; then
+        v_info "setup.sh"
+        (cd "$dest" && bash setup.sh >> "$log" 2>&1) || true
+      elif [[ -f "$dest/install.sh" ]]; then
+        v_info "install.sh"
+        (cd "$dest" && bash install.sh >> "$log" 2>&1) || true
+      fi
+      ;;
+  esac
+
+  v_ok "$name ready"
 }
 
-_progress_bar() {
-  local cur="$1" tot="$2" w=46
+# ================================================================
+#  CATEGORY INSTALLER  (installs all tools in one CAT array)
+# ================================================================
+install_category() {
+  local -n _arr="$1"
+  local cat_name="$2"
+  local total=${#_arr[@]} count=0 failed=()
+  echo -e "\n${Y}  Deploying: $cat_name ($total tools)${NC}"
+  echo -e "  ${D}══════════════════════════════════════${NC}"
+  for entry in "${_arr[@]}"; do
+    (( count++ ))
+    local name; name=$(echo "$entry" | cut -d'|' -f1)
+    printf "  ${C}[%d/%d]${NC} %s\n" "$count" "$total" "$name"
+    install_tool "$entry" || failed+=("$name")
+  done
+  echo ""
+  if (( ${#failed[@]} > 0 )); then
+    echo -e "${Y}  Completed with errors: ${failed[*]}${NC}"
+    echo -e "${D}  Logs: $LOG_DIR/${NC}"
+  else
+    v_ok "All $total tools in $cat_name installed successfully"
+  fi
+}
+
+# ================================================================
+#  PROGRESS BAR  (used by WARMODE)
+# ================================================================
+_pbar() {
+  local cur="$1" tot="$2" w=50
   (( tot == 0 )) && return
-  local f=$(( cur * w / tot )) e=$(( w - cur * w / tot ))
+  local f=$(( cur * w / tot )) e=$(( w - f ))
   local bf="" be=""
   (( f > 0 )) && bf=$(printf '#%.0s' $(seq 1 "$f"))
   (( e > 0 )) && be=$(printf '.%.0s' $(seq 1 "$e"))
-  printf "\r  ${RB}[${NC}${RB}%s${NC}${D}%s${NC}${RB}]${NC} %d/%d" "$bf" "$be" "$cur" "$tot"
+  printf "\r  ${RB}[${NC}${RB}%s${NC}${D}%s${NC}${RB}]${NC} %d/%d  " \
+    "$bf" "$be" "$cur" "$tot"
 }
 
-war_mode() {
+# ================================================================
+#  WARMODE BANNER
+# ================================================================
+show_warmode_banner() {
   clear
   echo -e "${RB}"
-  echo "  ██╗    ██╗ █████╗ ██████╗      ███╗   ███╗ ██████╗ ██████╗ ███████╗"
-  echo "  ██║    ██║██╔══██╗██╔══██╗     ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
-  echo "  ██║ █╗ ██║███████║██████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  "
-  echo "  ██║███╗██║██╔══██║██╔══██╗     ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
-  echo "  ╚███╔███╔╝██║  ██║██║  ██║     ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
-  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
-  echo -e "${NC}${RB}  [!]  ALL WEAPONS DEPLOYING - STAND CLEAR  [!]${NC}"
-  sleep 1
-
-  mkdir -p "$ARSENAL_DIR" "$LOG_DIR"
-  local keys=()
-  while IFS= read -r k; do keys+=("$k"); done < <(
-    printf '%s\n' "${!TOOL_REGISTRY[@]}" | sort -n
-  )
-  local total=${#keys[@]} count=0
-  local pids=() running_keys=() failed=()
-
-  for key in "${keys[@]}"; do
-    (( count++ ))
-    IFS='|' read -r name _ _ _ <<< "${TOOL_REGISTRY[$key]}"
-    log_war "[$count/$total] Deploying: $name"
-    install_tool "$key" >> "$LOG_DIR/war_$count.log" 2>&1 &
-    pids+=($!)
-    running_keys+=("$key")
-    if (( ${#pids[@]} >= WAR_JOBS )); then
-      if ! wait "${pids[0]}" 2>/dev/null; then failed+=("${running_keys[0]}"); fi
-      pids=("${pids[@]:1}")
-      running_keys=("${running_keys[@]:1}")
-    fi
-    _progress_bar "$count" "$total"
-  done
-  local i=0
-  for pid in "${pids[@]}"; do
-    if ! wait "$pid" 2>/dev/null; then failed+=("${running_keys[$i]:-?}"); fi
-    (( i++ )) || true
-  done
+  echo "  ██╗    ██╗ █████╗ ██████╗     ███╗   ███╗ ██████╗ ██████╗ ███████╗"
+  echo "  ██║    ██║██╔══██╗██╔══██╗    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
+  echo "  ██║ █╗ ██║███████║██████╔╝    ██╔████╔██║██║   ██║██║  ██║█████╗  "
+  echo "  ██║███╗██║██╔══██║██╔══██╗    ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
+  echo "  ╚███╔███╔╝██║  ██║██║  ██║    ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
+  echo "   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
   echo ""
-  echo -e "\n${RB}  WAR COMPLETE - $count WEAPONS DEPLOYED${NC}"
-  (( ${#failed[@]} > 0 )) && echo -e "${Y}  Failed: ${failed[*]}${NC}"
+  echo "  ██╗  ██╗███████╗██╗     ██╗          ██╗███████╗"
+  echo "  ██║  ██║██╔════╝██║     ██║         ██╔╝██╔════╝"
+  echo "  ███████║█████╗  ██║     ██║        ██╔╝ ███████╗"
+  echo "  ██╔══██║██╔══╝  ██║     ██║       ██╔╝  ╚════██║"
+  echo "  ██║  ██║███████╗███████╗███████╗ ██╔╝   ███████║"
+  echo "  ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚═╝    ╚══════╝"
+  echo -e "${NC}"
+  echo -e "${RB}  ════════════════════════════════════════════════════════════════${NC}"
+  echo -e "${RB}  WARNING: ENTERING WARMODE -- DEPLOYING ALL WEAPONS              ${NC}"
+  echo -e "${RB}  ════════════════════════════════════════════════════════════════${NC}"
+  echo ""
+  sleep 2
+}
+
+# ================================================================
+#  WARMODE EXECUTION
+#  Sequentially installs all 15 categories without user input.
+#  Tools are counted globally and a progress bar tracks overall
+#  deployment across all categories.
+# ================================================================
+run_warmode() {
+  show_warmode_banner
+
+  # Build flat list of all tools for global progress tracking
+  declare -a ALL_TOOLS=()
+  for cat_ref in CAT1 CAT2 CAT3 CAT4 CAT5 CAT6 CAT7 CAT8 \
+                 CAT9 CAT10 CAT11 CAT12 CAT13 CAT14 CAT15; do
+    local -n _cat_ref="$cat_ref"
+    for t in "${_cat_ref[@]}"; do ALL_TOOLS+=("$t"); done
+  done
+
+  local grand_total=${#ALL_TOOLS[@]}
+  local grand_count=0
+  local grand_failed=()
+
+  declare -A CAT_NAMES=(
+    [CAT1]="1. Scanning & Recon"
+    [CAT2]="2. Network Tools"
+    [CAT3]="3. Web & Vulnerability Scanning"
+    [CAT4]="4. XSS Tools"
+    [CAT5]="5. SQL Injection"
+    [CAT6]="6. WiFi & Bluetooth Tools"
+    [CAT7]="7. Anonymity"
+    [CAT8]="8. OSINT"
+    [CAT9]="9. Exploitation & C2 Frameworks"
+    [CAT10]="10. Active Directory"
+    [CAT11]="11. Password Cracking & Wordlists"
+    [CAT12]="12. Phishing"
+    [CAT13]="13. Post Exploitation"
+    [CAT14]="14. RTL-SDR & Radio Tools"
+    [CAT15]="15. Additional Dependencies & Training Labs"
+  )
+
+  for cat_ref in CAT1 CAT2 CAT3 CAT4 CAT5 CAT6 CAT7 CAT8 \
+                 CAT9 CAT10 CAT11 CAT12 CAT13 CAT14 CAT15; do
+    local -n _warcat="$cat_ref"
+    echo -e "\n${Y}  [WAR] ${CAT_NAMES[$cat_ref]}${NC}"
+    echo -e "  ${D}────────────────────────────────────${NC}"
+    for entry in "${_warcat[@]}"; do
+      (( grand_count++ ))
+      local name; name=$(echo "$entry" | cut -d'|' -f1)
+      v_war "[$grand_count/$grand_total] $name"
+      install_tool "$entry" || grand_failed+=("$name")
+      _pbar "$grand_count" "$grand_total"
+    done
+    echo ""
+  done
+
+  echo ""
+  echo -e "${RB}  ════════════════════════════════════════════════════════════════${NC}"
+  echo -e "${RB}  WAR COMPLETE -- $grand_count / $grand_total WEAPONS DEPLOYED${NC}"
+  echo -e "${RB}  ════════════════════════════════════════════════════════════════${NC}"
+  if (( ${#grand_failed[@]} > 0 )); then
+    echo -e "${Y}  Failed tools: ${grand_failed[*]}${NC}"
+    echo -e "${D}  Check logs: $LOG_DIR/${NC}"
+  fi
   echo ""
 }
 
-show_arsenal() {
-  local current_cat=""
-  echo ""
-  echo -e "${B}${Y}  [*]  WEAPONS ARSENAL  [*]${NC}"
-  echo -e "  ══════════════════════════════════════════════════════"
-  while IFS= read -r key; do
-    IFS='|' read -r name category _ _ <<< "${TOOL_REGISTRY[$key]}"
-    if [[ "$category" != "$current_cat" ]]; then
-      current_cat="$category"
-      echo -e "\n${B}${M}    -- $category --${NC}"
-    fi
-    local tag=""
-    _tool_is_installed "$name" "$ARSENAL_DIR/$name" && tag="${G}[installed]${NC}"
-    printf "  ${C}[%03d]${NC}  %-32s%b\n" "$key" "$name" "$tag"
-  done < <(printf '%s\n' "${!TOOL_REGISTRY[@]}" | sort -n)
-  echo -e "\n  ══════════════════════════════════════════════════════"
-  echo -e "\n  ${C}number${NC} -> install  |  ${RB}war${NC} -> all tools  |  ${Y}back${NC} -> return\n"
+# ================================================================
+#  SUBMENU ENGINE
+#  Renders a category submenu, handles:
+#    - Numbered individual install (1..N)
+#    - [A] Install ALL in category
+#    - [B] Back to main menu
+# ================================================================
+show_submenu() {
+  local cat_label="$1"   # e.g. "1. SCANNING & RECON"
+  local cat_ref="$2"     # name-ref: CAT1, CAT2 ...
+  local -n _sub_arr="$cat_ref"
 
   while true; do
-    echo -ne "${Y}arsenal> ${NC}"
-    read -r choice || break
-    case "${choice,,}" in
-      war)         war_mode; show_arsenal; return ;;
-      back|exit|q) break ;;
-      ''|*[!0-9]*) echo -e "${R}Enter a number, war, or back.${NC}" ;;
-      *)           install_tool "$choice" ;;
+    clear
+    echo -e "${B}${Y}"
+    echo "  ══════════════════════════════════════════════════════"
+    printf "  VIKING AI ARSENAL  --  %s\n" "$cat_label"
+    echo "  ══════════════════════════════════════════════════════"
+    echo -e "${NC}"
+
+    local i=1
+    for entry in "${_sub_arr[@]}"; do
+      local name; name=$(echo "$entry" | cut -d'|' -f1)
+      # Mark installed tools
+      local status=""
+      if command -v "$name" &>/dev/null 2>&1 || \
+         [[ -d "$ARSENAL_DIR/$name" ]]; then
+        status="${G}[installed]${NC}"
+      fi
+      printf "  ${C}[%02d]${NC}  %-30s %b\n" "$i" "$name" "$status"
+      (( i++ ))
+    done
+
+    local max=$(( i - 1 ))
+    echo ""
+    echo -e "  ${D}────────────────────────────────────────────────────${NC}"
+    echo -e "  ${Y}[A]${NC}  Install ALL tools in this category"
+    echo -e "  ${Y}[B]${NC}  Back to main menu"
+    echo -e "  ${D}────────────────────────────────────────────────────${NC}"
+    echo -ne "\n  ${Y}Select (1-$max, A, or B): ${NC}"
+    read -r sub_choice
+
+    case "${sub_choice^^}" in
+      A)
+        install_category "$cat_ref" "$cat_label"
+        echo ""
+        echo -ne "  ${D}Press Enter to continue...${NC}"
+        read -r
+        ;;
+      B|"")
+        return
+        ;;
+      *)
+        if [[ "$sub_choice" =~ ^[0-9]+$ ]] && \
+           (( sub_choice >= 1 && sub_choice <= max )); then
+          install_tool "${_sub_arr[$((sub_choice - 1))]}"
+          echo ""
+          echo -ne "  ${D}Press Enter to continue...${NC}"
+          read -r
+        else
+          echo -e "  ${R}Invalid selection. Enter 1-$max, A, or B.${NC}"
+          sleep 1
+        fi
+        ;;
     esac
   done
 }
 
-show_arsenal
-MENU
+# ================================================================
+#  MAIN ARSENAL MENU LOOP
+# ================================================================
+while true; do
+  clear
+  echo -e "${B}${Y}"
+  echo "  ══════════════════════════════════════════════════════"
+  echo "             VIKING AI -- WEAPONS ARSENAL              "
+  echo "  ══════════════════════════════════════════════════════"
+  echo -e "${NC}"
+  echo -e "  ${C} [1]${NC}  SCANNING & RECON"
+  echo -e "  ${C} [2]${NC}  NETWORK TOOLS"
+  echo -e "  ${C} [3]${NC}  WEB & VULNERABILITY SCANNING"
+  echo -e "  ${C} [4]${NC}  XSS TOOLS"
+  echo -e "  ${C} [5]${NC}  SQL INJECTION"
+  echo -e "  ${C} [6]${NC}  WIFI & BLUETOOTH TOOLS"
+  echo -e "  ${C} [7]${NC}  ANONYMITY"
+  echo -e "  ${C} [8]${NC}  OSINT (OPEN SOURCE INTELLIGENCE)"
+  echo -e "  ${C} [9]${NC}  EXPLOITATION & C2 FRAMEWORKS"
+  echo -e "  ${C}[10]${NC}  ACTIVE DIRECTORY"
+  echo -e "  ${C}[11]${NC}  PASSWORD CRACKING & WORDLISTS"
+  echo -e "  ${C}[12]${NC}  PHISHING"
+  echo -e "  ${C}[13]${NC}  POST EXPLOITATION"
+  echo -e "  ${C}[14]${NC}  RTL-SDR & RADIO TOOLS"
+  echo -e "  ${C}[15]${NC}  ADDITIONAL DEPENDENCIES & TRAINING LABS"
+  echo ""
+  echo -e "  ${RB}[16]${NC}${RB}  WARMODE  --  DEPLOY ALL WEAPONS${NC}"
+  echo ""
+  echo -e "  ${D} [0]  Exit Arsenal${NC}"
+  echo -e "  ${D}════════════════════════════════════════════════════${NC}"
+  echo -ne "\n  ${Y}Enter choice: ${NC}"
+  read -r main_choice
+
+  case "$main_choice" in
+    1)  show_submenu "1. SCANNING & RECON"                   CAT1  ;;
+    2)  show_submenu "2. NETWORK TOOLS"                      CAT2  ;;
+    3)  show_submenu "3. WEB & VULNERABILITY SCANNING"       CAT3  ;;
+    4)  show_submenu "4. XSS TOOLS"                         CAT4  ;;
+    5)  show_submenu "5. SQL INJECTION"                      CAT5  ;;
+    6)  show_submenu "6. WIFI & BLUETOOTH TOOLS"             CAT6  ;;
+    7)  show_submenu "7. ANONYMITY"                          CAT7  ;;
+    8)  show_submenu "8. OSINT (OPEN SOURCE INTELLIGENCE)"   CAT8  ;;
+    9)  show_submenu "9. EXPLOITATION & C2 FRAMEWORKS"       CAT9  ;;
+    10) show_submenu "10. ACTIVE DIRECTORY"                  CAT10 ;;
+    11) show_submenu "11. PASSWORD CRACKING & WORDLISTS"     CAT11 ;;
+    12) show_submenu "12. PHISHING"                          CAT12 ;;
+    13) show_submenu "13. POST EXPLOITATION"                 CAT13 ;;
+    14) show_submenu "14. RTL-SDR & RADIO TOOLS"             CAT14 ;;
+    15) show_submenu "15. ADDITIONAL DEPENDENCIES & LABS"    CAT15 ;;
+    16) run_warmode; echo -ne "  ${D}Press Enter to return...${NC}"; read -r ;;
+    0|"") echo -e "\n  ${C}Returning to VIKING...${NC}"; sleep 1; exit 0 ;;
+    *)  echo -e "  ${R}Invalid selection.${NC}"; sleep 1 ;;
+  esac
+done
+ARSENAL_MENU_SCRIPT
+
   chmod +x "$ARSENAL_MENU"
   log_ok "Arsenal menu -> $ARSENAL_MENU"
 }
+
 
 # ════════════════════════════════════════════════════════════════
 #  VIKING CLI SCRIPT
